@@ -1,20 +1,40 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## 🚀 Getting Started
 
-First, run the development server:
+### 1. Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+```
+
+### 2. Environment Setup
+
+Copy the example environment file and configure your settings:
+
+```bash
+cp .env.example .env.local
+```
+
+Update `.env.local` with your actual values:
+- `NEXTAUTH_SECRET`: Generate a secure secret for JWT signing
+- `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET`: Your Google OAuth credentials
+
+### 3. Run the Development Server
+
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### 4. Access the Login Page
+
+Visit [http://localhost:3000/login](http://localhost:3000/login) to see the modern login interface with:
+- ✅ Dark/Light theme support
+- ✅ Google OAuth integration  
+- ✅ Mobile-responsive design
+- ✅ Professional UI matching the HR dashboard aesthetic
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
@@ -167,7 +187,11 @@ toast.success("Employee created successfully!")
 toast.error("Failed to save changes")
 ```
 
-For comprehensive documentation and HR-specific examples, see `hr-dashboard-docs.md`.
+## 📚 Documentation
+
+- **`hr-dashboard-docs.md`** - Comprehensive technical documentation and HR-specific examples
+- **`DESIGN_SYSTEM.md`** - Complete design system, UI guidelines, and implementation rules
+- **`LOGIN_PAGE_DOCS.md`** - Detailed login page implementation guide
 
 ## Architecture Notes
 

@@ -1,23 +1,42 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
+        <div className="flex items-center gap-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
+            <span className="text-white font-bold text-xl">HR</span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">HR Manager Dashboard</h1>
+            <p className="text-muted-foreground">Enterprise HR Management System</p>
+          </div>
+        </div>
+        
+        <div className="flex flex-col gap-4 items-center sm:items-start">
+          <Link 
+            href="/login"
+            className="inline-flex items-center px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+          >
+            View Login Page
+          </Link>
+          
+          <p className="text-sm text-muted-foreground">
+            Check out the modern login page with dark/light theme support
+          </p>
+        </div>
+
         <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
           <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
+            ✅ Enterprise-grade Radix UI components installed
+          </li>
+          <li className="mb-2 tracking-[-.01em]">
+            ✅ Modern login page with Google OAuth integration
+          </li>
+          <li className="mb-2 tracking-[-.01em]">
+            ✅ Dark/Light theme support with next-themes
             .
           </li>
           <li className="tracking-[-.01em]">
