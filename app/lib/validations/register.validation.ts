@@ -15,12 +15,16 @@ export const registerSchema = z
       .max(255, 'Email is too long'),
     phone: z
       .string()
+      .min(10, 'Please enter a valid phone number (at least 10 digits)')
       .regex(
         /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/,
         'Invalid phone number format'
-      )
-      .optional()
-      .or(z.literal('')),
+      ),
+    gender: z
+      .string()
+      .refine((val) => val === 'H' || val === 'F', {
+        message: 'Please select your gender',
+      }),
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters')
@@ -29,10 +33,10 @@ export const registerSchema = z
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
         'Password must contain at least one uppercase letter, one lowercase letter, and one number'
       ),
-    confirmPassword: z.string(),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
+    message: "Passwords do not match",
     path: ['confirmPassword'],
   });
 

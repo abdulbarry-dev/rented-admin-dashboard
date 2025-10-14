@@ -10,9 +10,10 @@ interface IDCardUploadProps {
   isOpen: boolean;
   onClose: () => void;
   onUploadComplete: (files: { front: File; back: File }) => void;
+  isSubmitting?: boolean;
 }
 
-export default function IDCardUpload({ isOpen, onClose, onUploadComplete }: IDCardUploadProps) {
+export default function IDCardUpload({ isOpen, onClose, onUploadComplete, isSubmitting = false }: IDCardUploadProps) {
   const [isValidConfirmed, setIsValidConfirmed] = useState(false);
   const [isDragging, setIsDragging] = useState<'front' | 'back' | null>(null);
   
@@ -101,19 +102,14 @@ export default function IDCardUpload({ isOpen, onClose, onUploadComplete }: IDCa
   const handleSubmit = () => {
     if (!frontUpload.file || !backUpload.file || !isValidConfirmed) return;
 
-    onUploadComplete({
-      front: frontUpload.file.file,
-      back: backUpload.file.file,
-    });
-    
-    // Reset state
-    frontUpload.removeFile();
-    backUpload.removeFile();
-    setIsValidConfirmed(false);
-    onClose();
+    const frontFile = frontUpload.file.file;
+    const backFile = backUpload.file.file;
+
+    // Call parent callback with the files
+    onUploadComplete({ front: frontFile, back: backFile });
   };
 
-  const canSubmit = frontUpload.file && backUpload.file && isValidConfirmed && !frontUpload.isLoading && !backUpload.isLoading;
+  const canSubmit = frontUpload.file && backUpload.file && isValidConfirmed && !frontUpload.isLoading && !backUpload.isLoading && !isSubmitting;
 
   if (!isOpen) return null;
 
@@ -228,8 +224,17 @@ export default function IDCardUpload({ isOpen, onClose, onUploadComplete }: IDCa
             }`}
             aria-disabled={!canSubmit}
           >
-            <Upload className="w-5 h-5" aria-hidden="true" />
-            Submit Documents
+            {isSubmitting ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Upload className="w-5 h-5" aria-hidden="true" />
+                Submit Documents
+              </>
+            )}
           </button>
         </div>
       </div>

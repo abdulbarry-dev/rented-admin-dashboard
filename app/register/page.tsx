@@ -1,68 +1,205 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from 'react'
 import { 
-  UserPlus, 
-  Mail, 
-  Lock, 
-  User, 
-  Phone, 
-  Eye, 
+  UserPlus,
+  Mail,
+  Lock,
+  User,
+  Phone,
+  Eye,
   EyeOff,
   ArrowRight,
-  Sparkles
-} from 'lucide-react';
-import Link from 'next/link';
-import TermsModal from '../components/TermsModal';
-import PrivacyModal from '../components/PrivacyModal';
-import IDCardUpload from '../components/IDCardUpload';
+  Sparkles,
+  AlertCircle
+} from 'lucide-react'
+import Link from 'next/link'
+import TermsModal from '../components/TermsModal'
+import PrivacyModal from '../components/PrivacyModal'
+import IDCardUpload from '../components/IDCardUpload'
+import { registerWithDocuments } from '../../lib/auth'
+import { toast } from 'sonner'
+import { registerSchema } from '../lib/validations/register.validation'
+import { z } from 'zod'
 
 export default function RegisterPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showIDUpload, setShowIDUpload] = useState(false);
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [showIDUpload, setShowIDUpload] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
-  });
+    gender: '',
+  })
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+      [name]: value,
+    })
     
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
-      return;
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors({
+        ...fieldErrors,
+        [name]: '',
+      })
     }
-    
-    // Show ID upload modal
-    setShowIDUpload(true);
-  };
+  }
 
-  const handleIDUploadComplete = (files: { front: File; back: File }) => {
-    // Handle the uploaded files and complete registration
-    console.log('Form submitted:', formData);
-    console.log('ID Card files:', files);
+  const handleBlur = (fieldName: string) => {
+    setTouched({
+      ...touched,
+      [fieldName]: true,
+    })
     
-    // Here you would typically:
-    // 1. Upload files to server
-    // 2. Create user account
-    // 3. Redirect to success page or login
+    try {
+      registerSchema.pick({ [fieldName]: true } as any).parse({ [fieldName]: formData[fieldName as keyof typeof formData] })
+      setFieldErrors({
+        ...fieldErrors,
+        [fieldName]: '',
+      })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setFieldErrors({
+          ...fieldErrors,
+          [fieldName]: error.issues[0]?.message || '',
+        })
+      }
+    }
+  }
+
+  const getHttpErrorMessage = (statusCode: number): string => {
+    switch (statusCode) {
+      case 400:
+        return 'Invalid request. Please check your input and try again.'
+      case 401:
+        return 'Authentication failed. Please try again.'
+      case 403:
+        return 'Access denied. You do not have permission to perform this action.'
+      case 404:
+        return 'Service not found. Please contact support.'
+      case 409:
+        return 'This account already exists. Please try logging in.'
+      case 422:
+        return 'Validation failed. Please check your input.'
+      case 429:
+        return 'Too many requests. Please try again later.'
+      case 500:
+        return 'Server error. Please try again later.'
+      case 502:
+        return 'Service temporarily unavailable. Please try again.'
+      case 503:
+        return 'Service maintenance in progress. Please try again later.'
+      default:
+        return 'Registration failed. Please try again.'
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      registerSchema.parse(formData)
+      setFieldErrors({})
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errors: Record<string, string> = {}
+        error.issues.forEach((issue) => {
+          if (issue.path[0]) {
+            errors[issue.path[0] as string] = issue.message
+          }
+        })
+        setFieldErrors(errors)
+        setTouched({
+          fullName: true,
+          email: true,
+          phone: true,
+          password: true,
+          confirmPassword: true,
+          gender: true,
+        })
+        toast.error('Please fix the errors in the form')
+        return
+      }
+    }
+
+    // Show ID upload modal instead of submitting immediately
+    setShowIDUpload(true)
+  }
+
+  const handleIDUploadComplete = async (files: { front: File; back: File }) => {
+    setLoading(true)
     
-    alert('Registration successful! ID cards uploaded.');
-  };
+    try {
+      const payload = {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        passwordConfirmation: formData.confirmPassword,
+        gender: formData.gender,
+        idFront: files.front,
+        idBack: files.back,
+      }
+
+      await registerWithDocuments(payload)
+      toast.success('Account created and verification submitted successfully!')
+      setShowIDUpload(false)
+      
+      // Optionally redirect to dashboard or login
+      // router.push('/dashboard')
+    } catch (err: any) {
+      if (err?.response?.data?.errors) {
+        const backendErrors: Record<string, string> = {}
+        const errors = err.response.data.errors
+        
+        Object.keys(errors).forEach((key) => {
+          const errorMessages = Array.isArray(errors[key]) ? errors[key] : [errors[key]]
+          const mappedKey = key === 'name' ? 'fullName' 
+            : key === 'password_confirmation' ? 'confirmPassword'
+            : key === 'id_front' ? 'idFront'
+            : key === 'id_back' ? 'idBack'
+            : key
+          backendErrors[mappedKey] = errorMessages[0]
+        })
+        
+        setFieldErrors(backendErrors)
+        toast.error('Please fix the validation errors')
+        
+        // If ID document errors, keep modal open
+        if (errors.id_front || errors.id_back) {
+          return
+        } else {
+          setShowIDUpload(false)
+        }
+      } 
+      else if (err?.response?.data?.message) {
+        toast.error(err.response.data.message)
+        setShowIDUpload(false)
+      } 
+      else if (err?.response?.status) {
+        const message = getHttpErrorMessage(err.response.status)
+        toast.error(message)
+        setShowIDUpload(false)
+      } 
+      else {
+        toast.error('Network error. Please check your connection and try again.')
+        setShowIDUpload(false)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen h-screen bg-[#0a0a0a] text-[#ededed] flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-hidden">
@@ -153,11 +290,24 @@ export default function RegisterPage() {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
-                    className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                    onBlur={() => handleBlur('fullName')}
+                    className={`w-full bg-[#1a1a1a] border ${
+                      touched.fullName && fieldErrors.fullName
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
+                    } rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                     placeholder="John Doe"
                     required
+                    aria-invalid={touched.fullName && !!fieldErrors.fullName}
+                    aria-describedby={fieldErrors.fullName ? 'fullName-error' : undefined}
                   />
                 </div>
+                {touched.fullName && fieldErrors.fullName && (
+                  <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="fullName-error" role="alert">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{fieldErrors.fullName}</span>
+                  </div>
+                )}
               </div>
 
               {/* Email & Phone in Grid on larger screens */}
@@ -175,11 +325,24 @@ export default function RegisterPage() {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                      onBlur={() => handleBlur('email')}
+                      className={`w-full bg-[#1a1a1a] border ${
+                        touched.email && fieldErrors.email
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
+                      } rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="john@example.com"
                       required
+                      aria-invalid={touched.email && !!fieldErrors.email}
+                      aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                     />
                   </div>
+                  {touched.email && fieldErrors.email && (
+                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="email-error" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.email}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Phone Number */}
@@ -195,11 +358,74 @@ export default function RegisterPage() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                      onBlur={() => handleBlur('phone')}
+                      className={`w-full bg-[#1a1a1a] border ${
+                        touched.phone && fieldErrors.phone
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
+                      } rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="+1 (555) 000-0000"
+                      required
+                      aria-invalid={touched.phone && !!fieldErrors.phone}
+                      aria-describedby={fieldErrors.phone ? 'phone-error' : undefined}
                     />
                   </div>
+                  {touched.phone && fieldErrors.phone && (
+                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="phone-error" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.phone}</span>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Gender Selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs sm:text-sm font-medium text-gray-300">
+                  Gender
+                </label>
+                <div className="flex gap-4">
+                  {/* Male Option */}
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="H"
+                      checked={formData.gender === 'H'}
+                      onChange={handleChange}
+                      onBlur={() => handleBlur('gender')}
+                      className="w-4 h-4 text-purple-600 bg-[#1a1a1a] border-gray-700 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                      required
+                      aria-invalid={touched.gender && !!fieldErrors.gender}
+                    />
+                    <span className="text-sm sm:text-base text-gray-300 group-hover:text-white transition-colors">
+                      Male
+                    </span>
+                  </label>
+
+                  {/* Female Option */}
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="F"
+                      checked={formData.gender === 'F'}
+                      onChange={handleChange}
+                      onBlur={() => handleBlur('gender')}
+                      className="w-4 h-4 text-purple-600 bg-[#1a1a1a] border-gray-700 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                      aria-invalid={touched.gender && !!fieldErrors.gender}
+                    />
+                    <span className="text-sm sm:text-base text-gray-300 group-hover:text-white transition-colors">
+                      Female
+                    </span>
+                  </label>
+                </div>
+                {touched.gender && fieldErrors.gender && (
+                  <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="gender-error" role="alert">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{fieldErrors.gender}</span>
+                  </div>
+                )}
               </div>
 
               {/* Password Fields in Grid */}
@@ -217,18 +443,32 @@ export default function RegisterPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 sm:pl-10 pr-10 sm:pr-12 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                      onBlur={() => handleBlur('password')}
+                      className={`w-full bg-[#1a1a1a] border ${
+                        touched.password && fieldErrors.password
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
+                      } rounded-lg pl-9 sm:pl-10 pr-10 sm:pr-12 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="Strong password"
                       required
+                      aria-invalid={touched.password && !!fieldErrors.password}
+                      aria-describedby={fieldErrors.password ? 'password-error' : undefined}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                   </div>
+                  {touched.password && fieldErrors.password && (
+                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="password-error" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.password}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Confirm Password */}
@@ -244,18 +484,32 @@ export default function RegisterPage() {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 sm:pl-10 pr-10 sm:pr-12 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                      onBlur={() => handleBlur('confirmPassword')}
+                      className={`w-full bg-[#1a1a1a] border ${
+                        touched.confirmPassword && fieldErrors.confirmPassword
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
+                      } rounded-lg pl-9 sm:pl-10 pr-10 sm:pr-12 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="Re-enter password"
                       required
+                      aria-invalid={touched.confirmPassword && !!fieldErrors.confirmPassword}
+                      aria-describedby={fieldErrors.confirmPassword ? 'confirmPassword-error' : undefined}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                     >
                       {showConfirmPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                   </div>
+                  {touched.confirmPassword && fieldErrors.confirmPassword && (
+                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="confirmPassword-error" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.confirmPassword}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -290,10 +544,27 @@ export default function RegisterPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg transition-all flex items-center justify-center gap-2 group shadow-lg shadow-purple-600/20 text-sm sm:text-base"
+                disabled={loading}
+                className={`w-full font-medium py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg transition-all flex items-center justify-center gap-2 group shadow-lg shadow-purple-600/20 text-sm sm:text-base ${
+                  loading
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
+                }`}
               >
-                Create Account
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    Create Account
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
 
               {/* Sign In Link */}
@@ -320,6 +591,7 @@ export default function RegisterPage() {
         isOpen={showIDUpload} 
         onClose={() => setShowIDUpload(false)}
         onUploadComplete={handleIDUploadComplete}
+        isSubmitting={loading}
       />
     </div>
   );

@@ -53,3 +53,23 @@ export const readFileAsDataURL = (file: File): Promise<string> => {
     reader.readAsDataURL(file);
   });
 };
+
+/**
+ * Validates file type against allowed types
+ * @param file - File to validate
+ * @param allowedTypes - Array of allowed MIME types
+ * @returns True if file type is allowed
+ */
+export const validateFileType = (file: File, allowedTypes: string[]): boolean => {
+  return allowedTypes.includes(file.type);
+};
+
+/**
+ * Validates file size
+ * @param file - File to validate
+ * @param maxSize - Maximum size in bytes
+ * @returns True if file size is within limit
+ */
+export const validateFileSize = (file: File, maxSize: number): boolean => {
+  return file.size <= maxSize;
+};
