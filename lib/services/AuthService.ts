@@ -1,20 +1,19 @@
 import { signIn, signOut, getSession } from 'next-auth/react'
-import { IAuthProvider, IAuthCredentials, IAuthResult, IUser, AuthProvider, LoadingState } from '@/lib/types'
+import { IAuthProvider, IAuthCredentials, IAuthResult, IUser, LoadingState } from '@/lib/types'
 import { toast } from 'sonner'
 
 /**
- * Authentication service class implementing the IAuthProvider interface
- * Handles all authentication operations using NextAuth.js
+ * AuthService - Handles user authentication
+ * 
+ * Simple singleton service for login, logout, and session management
  */
 export class AuthService implements IAuthProvider {
   private static instance: AuthService | null = null
-  private _loadingState: LoadingState = LoadingState.IDLE
-  private _currentUser: IUser | null = null
-  private _listeners: Set<(user: IUser | null) => void> = new Set()
+  private currentUser: IUser | null = null
+  private loadingState: LoadingState = LoadingState.IDLE
+  private listeners: Set<(user: IUser | null) => void> = new Set()
   
-  /**
-   * Singleton pattern implementation
-   */
+  /** Get or create the single instance */
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService()
@@ -22,31 +21,20 @@ export class AuthService implements IAuthProvider {
     return AuthService.instance
   }
   
-  /**
-   * Private constructor to enforce singleton pattern
-   */
   private constructor() {
-    this.initializeSession()
+    this.loadSession()
   }
   
-  /**
-   * Initialize session on service creation
-   */
-  private async initializeSession(): Promise<void> {
-    try {
-      const user = await this.getCurrentUser()
-      this._currentUser = user
-      this.notifyListeners(user)
-    } catch (error) {
-      console.error('Failed to initialize session:', error)
-    }
+  /** Load current session on startup */
+  private async loadSession(): Promise<void> {
+    const user = await this.getCurrentUser()
+    this.currentUser = user
+    this.notifyListeners(user)
   }
   
-  /**
-   * Sign in with email and password credentials
-   */
+  /** Sign in with email and password */
   async signIn(credentials: IAuthCredentials): Promise<IAuthResult> {
-    this.setLoadingState(LoadingState.LOADING)
+    this.loadingState = LoadingState.LOADING
     
     try {
       const result = await signIn('credentials', {
@@ -56,43 +44,30 @@ export class AuthService implements IAuthProvider {
       })
       
       if (result?.error) {
-        this.setLoadingState(LoadingState.ERROR)
-        return {
-          success: false,
-          error: this.getErrorMessage(result.error)
-        }
+        this.loadingState = LoadingState.ERROR
+        toast.error(this.getErrorMessage(result.error))
+        return { success: false, error: this.getErrorMessage(result.error) }
       }
       
       const user = await this.getCurrentUser()
-      this._currentUser = user
+      this.currentUser = user
       this.notifyListeners(user)
-      this.setLoadingState(LoadingState.SUCCESS)
+      this.loadingState = LoadingState.SUCCESS
       
       toast.success('Successfully signed in!')
-      
-      return {
-        success: true,
-        user: user || undefined
-      }
+      return { success: true, user: user || undefined }
       
     } catch (error) {
-      this.setLoadingState(LoadingState.ERROR)
-      const errorMessage = error instanceof Error ? error.message : 'Sign in failed'
-      
-      toast.error(errorMessage)
-      
-      return {
-        success: false,
-        error: errorMessage
-      }
+      this.loadingState = LoadingState.ERROR
+      const message = error instanceof Error ? error.message : 'Sign in failed'
+      toast.error(message)
+      return { success: false, error: message }
     }
   }
   
-  /**
-   * Sign in with Google OAuth
-   */
+  /** Sign in with Google OAuth */
   async signInWithGoogle(): Promise<IAuthResult> {
-    this.setLoadingState(LoadingState.LOADING)
+    this.loadingState = LoadingState.LOADING
     
     try {
       const result = await signIn('google', { 
@@ -101,70 +76,47 @@ export class AuthService implements IAuthProvider {
       })
       
       if (result?.error) {
-        this.setLoadingState(LoadingState.ERROR)
-        return {
-          success: false,
-          error: 'Google sign in failed'
-        }
+        this.loadingState = LoadingState.ERROR
+        toast.error('Google sign in failed')
+        return { success: false, error: 'Google sign in failed' }
       }
       
       const user = await this.getCurrentUser()
-      this._currentUser = user
+      this.currentUser = user
       this.notifyListeners(user)
-      this.setLoadingState(LoadingState.SUCCESS)
+      this.loadingState = LoadingState.SUCCESS
       
       toast.success('Successfully signed in with Google!')
-      
-      return {
-        success: true,
-        user: user || undefined
-      }
+      return { success: true, user: user || undefined }
       
     } catch (error) {
-      this.setLoadingState(LoadingState.ERROR)
-      const errorMessage = 'Google authentication failed'
-      
-      toast.error(errorMessage)
-      
-      return {
-        success: false,
-        error: errorMessage
-      }
+      this.loadingState = LoadingState.ERROR
+      toast.error('Google authentication failed')
+      return { success: false, error: 'Google authentication failed' }
     }
   }
   
-  /**
-   * Sign out current user
-   */
+  /** Sign out current user */
   async signOut(): Promise<void> {
     try {
-      await signOut({ 
-        callbackUrl: '/login',
-        redirect: false 
-      })
+      await signOut({ callbackUrl: '/login', redirect: false })
       
-      this._currentUser = null
+      this.currentUser = null
       this.notifyListeners(null)
-      this.setLoadingState(LoadingState.IDLE)
+      this.loadingState = LoadingState.IDLE
       
       toast.success('Successfully signed out')
-      
     } catch (error) {
-      console.error('Sign out error:', error)
+      console.error('Sign out failed:', error)
       toast.error('Failed to sign out')
     }
   }
   
-  /**
-   * Get current authenticated user
-   */
+  /** Get current authenticated user from session */
   async getCurrentUser(): Promise<IUser | null> {
     try {
       const session = await getSession()
-      
-      if (!session?.user) {
-        return null
-      }
+      if (!session?.user) return null
       
       return {
         id: session.user.id,
@@ -172,104 +124,55 @@ export class AuthService implements IAuthProvider {
         email: session.user.email,
         image: session.user.image
       }
-      
     } catch (error) {
-      console.error('Failed to get current user:', error)
+      console.error('Failed to get user:', error)
       return null
     }
   }
   
-  /**
-   * Refresh authentication token (placeholder for future implementation)
-   */
+  /** Refresh auth token (placeholder) */
   async refreshToken(): Promise<string | null> {
-    try {
-      // Implement token refresh logic here
-      // This would typically call your API to refresh the JWT token
-      return null
-    } catch (error) {
-      console.error('Token refresh failed:', error)
-      return null
-    }
+    return null
   }
   
-  /**
-   * Get current loading state
-   */
+  /** Get loading state */
   getLoadingState(): LoadingState {
-    return this._loadingState
+    return this.loadingState
   }
   
-  /**
-   * Check if authentication is in loading state
-   */
+  /** Check if loading */
   isLoading(): boolean {
-    return this._loadingState === LoadingState.LOADING
+    return this.loadingState === LoadingState.LOADING
   }
   
-  /**
-   * Get cached current user (synchronous)
-   */
+  /** Get cached user without async call */
   getCachedUser(): IUser | null {
-    return this._currentUser
+    return this.currentUser
   }
   
-  /**
-   * Subscribe to user state changes
-   */
+  /** Subscribe to user changes */
   subscribe(listener: (user: IUser | null) => void): () => void {
-    this._listeners.add(listener)
-    
-    // Return unsubscribe function
-    return () => {
-      this._listeners.delete(listener)
-    }
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
   }
   
-  /**
-   * Set loading state
-   */
-  private setLoadingState(state: LoadingState): void {
-    this._loadingState = state
-  }
-  
-  /**
-   * Notify all listeners of user state changes
-   */
+  /** Notify all subscribers */
   private notifyListeners(user: IUser | null): void {
-    this._listeners.forEach(listener => listener(user))
+    this.listeners.forEach(listener => listener(user))
   }
   
-  /**
-   * Convert NextAuth error codes to user-friendly messages
-   */
+  /** Convert error codes to friendly messages */
   private getErrorMessage(error: string): string {
-    switch (error) {
-      case 'CredentialsSignin':
-        return 'Invalid email or password'
-      case 'OAuthSignin':
-      case 'OAuthCallback':
-      case 'OAuthCreateAccount':
-        return 'OAuth authentication failed'
-      case 'EmailCreateAccount':
-        return 'Failed to create account'
-      case 'Callback':
-        return 'Authentication callback failed'
-      case 'OAuthAccountNotLinked':
-        return 'Account already exists with different provider'
-      case 'EmailSignin':
-        return 'Failed to send sign in email'
-      case 'CredentialsCreateAccount':
-        return 'Failed to create account with credentials'
-      case 'SessionRequired':
-        return 'Please sign in to continue'
-      default:
-        return 'Authentication failed'
+    const messages: Record<string, string> = {
+      'CredentialsSignin': 'Invalid email or password',
+      'OAuthSignin': 'OAuth authentication failed',
+      'OAuthCallback': 'OAuth authentication failed',
+      'OAuthCreateAccount': 'OAuth authentication failed',
+      'OAuthAccountNotLinked': 'Account exists with different provider',
+      'SessionRequired': 'Please sign in to continue',
     }
+    return messages[error] || 'Authentication failed'
   }
 }
 
-/**
- * Singleton instance export for easy access
- */
 export const authService = AuthService.getInstance()

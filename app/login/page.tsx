@@ -28,11 +28,11 @@ export default function LoginPage() {
       const controller = new LoginController()
       
       // Setup event handlers
-      controller.onStateChange((state) => {
+      controller.setStateChangeHandler((state) => {
         setLoadingState(state)
       })
       
-      controller.onSuccess(() => {
+      controller.setSuccessHandler(() => {
         router.push('/dashboard')
       })
       
@@ -47,7 +47,6 @@ export default function LoginPage() {
       // Cleanup on unmount
       return () => {
         unsubscribeTheme()
-        controller.dispose()
       }
     }
   }, [router])

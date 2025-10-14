@@ -2,17 +2,16 @@ import { IToastConfig } from '@/lib/types'
 import { toast as sonnerToast, ToastT } from 'sonner'
 
 /**
- * Notification service class for managing toast notifications
- * Provides a centralized interface for all notification operations
+ * NotificationService - Shows toast notifications
+ * 
+ * Simple wrapper around Sonner toast library
  */
 export class NotificationService {
   private static instance: NotificationService | null = null
-  private _config: IToastConfig
-  private _activeToasts: Map<string, string> = new Map()
+  private config: IToastConfig
+  private activeToasts: Map<string, string> = new Map()
   
-  /**
-   * Singleton pattern implementation
-   */
+  /** Get or create single instance */
   public static getInstance(config?: IToastConfig): NotificationService {
     if (!NotificationService.instance) {
       NotificationService.instance = new NotificationService(config)
@@ -20,260 +19,133 @@ export class NotificationService {
     return NotificationService.instance
   }
   
-  /**
-   * Private constructor to enforce singleton pattern
-   */
   private constructor(config?: IToastConfig) {
-    this._config = config || {
+    this.config = config || {
       position: 'top-right',
       duration: 4000,
       richColors: true
     }
   }
   
-  /**
-   * Show success notification
-   */
+  /** Show success toast */
   success(message: string, options?: Partial<ToastT>): string {
-    const id = sonnerToast.success(message, {
-      duration: this._config.duration,
-      ...options
-    })
-    
-    this._activeToasts.set(String(id), 'success')
+    const id = sonnerToast.success(message, { duration: this.config.duration, ...options })
+    this.activeToasts.set(String(id), 'success')
     return String(id)
   }
   
-  /**
-   * Show error notification
-   */
+  /** Show error toast */
   error(message: string, options?: Partial<ToastT>): string {
-    const id = sonnerToast.error(message, {
-      duration: this._config.duration,
-      ...options
-    })
-    
-    this._activeToasts.set(String(id), 'error')
+    const id = sonnerToast.error(message, { duration: this.config.duration, ...options })
+    this.activeToasts.set(String(id), 'error')
     return String(id)
   }
   
-  /**
-   * Show warning notification
-   */
+  /** Show warning toast */
   warning(message: string, options?: Partial<ToastT>): string {
-    const id = sonnerToast.warning(message, {
-      duration: this._config.duration,
-      ...options
-    })
-    
-    this._activeToasts.set(String(id), 'warning')
+    const id = sonnerToast.warning(message, { duration: this.config.duration, ...options })
+    this.activeToasts.set(String(id), 'warning')
     return String(id)
   }
   
-  /**
-   * Show info notification
-   */
+  /** Show info toast */
   info(message: string, options?: Partial<ToastT>): string {
-    const id = sonnerToast.info(message, {
-      duration: this._config.duration,
-      ...options
-    })
-    
-    this._activeToasts.set(String(id), 'info')
+    const id = sonnerToast.info(message, { duration: this.config.duration, ...options })
+    this.activeToasts.set(String(id), 'info')
     return String(id)
   }
   
-  /**
-   * Show loading notification
-   */
+  /** Show loading toast */
   loading(message: string, options?: Partial<ToastT>): string {
-    const id = sonnerToast.loading(message, {
-      duration: Infinity, // Loading toasts should not auto-dismiss
-      ...options
-    })
-    
-    this._activeToasts.set(String(id), 'loading')
+    const id = sonnerToast.loading(message, { duration: Infinity, ...options })
+    this.activeToasts.set(String(id), 'loading')
     return String(id)
   }
   
-  /**
-   * Show custom notification
-   */
+  /** Show custom toast */
   custom(message: string, options?: Partial<ToastT>): string {
-    const id = sonnerToast(message, {
-      duration: this._config.duration,
-      ...options
-    })
-    
-    this._activeToasts.set(String(id), 'custom')
+    const id = sonnerToast(message, { duration: this.config.duration, ...options })
+    this.activeToasts.set(String(id), 'custom')
     return String(id)
   }
   
-  /**
-   * Update existing notification
-   */
-  update(id: string, message: string, options?: Partial<ToastT>): void {
-    // Sonner doesn't have a direct update method, so we dismiss and create new
-    this.dismiss(id)
-    this.custom(message, options)
-  }
-  
-  /**
-   * Dismiss specific notification
-   */
+  /** Dismiss specific toast */
   dismiss(id: string): void {
     sonnerToast.dismiss(id)
-    this._activeToasts.delete(id)
+    this.activeToasts.delete(id)
   }
   
-  /**
-   * Dismiss all notifications
-   */
+  /** Dismiss all toasts */
   dismissAll(): void {
     sonnerToast.dismiss()
-    this._activeToasts.clear()
+    this.activeToasts.clear()
   }
   
-  /**
-   * Promise-based notification for async operations
-   */
+  /** Promise-based toast for async operations */
   async promise<T>(
     promise: Promise<T>,
-    {
-      loading,
-      success,
-      error
-    }: {
+    messages: {
       loading: string
       success: string | ((data: T) => string)
       error: string | ((error: any) => string)
     }
   ): Promise<T> {
-    sonnerToast.promise(promise, {
-      loading,
-      success,
-      error
-    })
-    
+    sonnerToast.promise(promise, messages)
     return promise
   }
   
-  /**
-   * Authentication-specific notifications
-   */
+  /** Auth-specific toasts */
   auth = {
-    signInSuccess: (userName?: string) => {
-      const message = userName 
-        ? `Welcome back, ${userName}!` 
-        : 'Successfully signed in!'
-      return this.success(message)
-    },
-    
-    signOutSuccess: () => {
-      return this.success('Successfully signed out')
-    },
-    
-    signInError: (error?: string) => {
-      const message = error || 'Failed to sign in. Please try again.'
-      return this.error(message)
-    },
-    
-    sessionExpired: () => {
-      return this.warning('Your session has expired. Please sign in again.')
-    },
-    
-    unauthorized: () => {
-      return this.error('You are not authorized to perform this action.')
-    }
+    signInSuccess: (userName?: string) => 
+      this.success(userName ? `Welcome back, ${userName}!` : 'Successfully signed in!'),
+    signOutSuccess: () => this.success('Successfully signed out'),
+    signInError: (error?: string) => this.error(error || 'Failed to sign in. Please try again.'),
+    sessionExpired: () => this.warning('Your session has expired. Please sign in again.'),
+    unauthorized: () => this.error('You are not authorized to perform this action.')
   }
   
-  /**
-   * Form-specific notifications
-   */
+  /** Form-specific toasts */
   form = {
-    validationError: (message = 'Please check the form and try again.') => {
-      return this.error(message)
-    },
-    
-    saveSuccess: (itemName = 'Item') => {
-      return this.success(`${itemName} saved successfully!`)
-    },
-    
-    saveError: (itemName = 'Item') => {
-      return this.error(`Failed to save ${itemName.toLowerCase()}. Please try again.`)
-    },
-    
-    deleteSuccess: (itemName = 'Item') => {
-      return this.success(`${itemName} deleted successfully!`)
-    },
-    
-    deleteError: (itemName = 'Item') => {
-      return this.error(`Failed to delete ${itemName.toLowerCase()}. Please try again.`)
-    }
+    validationError: (message = 'Please check the form and try again.') => this.error(message),
+    saveSuccess: (item = 'Item') => this.success(`${item} saved successfully!`),
+    saveError: (item = 'Item') => this.error(`Failed to save ${item.toLowerCase()}. Please try again.`),
+    deleteSuccess: (item = 'Item') => this.success(`${item} deleted successfully!`),
+    deleteError: (item = 'Item') => this.error(`Failed to delete ${item.toLowerCase()}. Please try again.`)
   }
   
-  /**
-   * Network-specific notifications
-   */
+  /** Network-specific toasts */
   network = {
-    connectionError: () => {
-      return this.error('Network connection error. Please check your internet connection.')
-    },
-    
-    serverError: () => {
-      return this.error('Server error. Please try again later.')
-    },
-    
-    timeoutError: () => {
-      return this.error('Request timed out. Please try again.')
-    }
+    connectionError: () => this.error('Network connection error. Please check your internet connection.'),
+    serverError: () => this.error('Server error. Please try again later.'),
+    timeoutError: () => this.error('Request timed out. Please try again.')
   }
   
-  /**
-   * Get active toasts count
-   */
+  /** Get count of active toasts */
   getActiveToastsCount(): number {
-    return this._activeToasts.size
+    return this.activeToasts.size
   }
   
-  /**
-   * Get active toasts by type
-   */
+  /** Get active toasts by type */
   getActiveToastsByType(type: string): string[] {
-    const toasts: string[] = []
-    
-    for (const [id, toastType] of this._activeToasts) {
-      if (toastType === type) {
-        toasts.push(id)
-      }
-    }
-    
-    return toasts
+    return Array.from(this.activeToasts.entries())
+      .filter(([_, toastType]) => toastType === type)
+      .map(([id]) => id)
   }
   
-  /**
-   * Check if there are any active loading toasts
-   */
+  /** Check if any loading toasts are active */
   hasLoadingToasts(): boolean {
     return this.getActiveToastsByType('loading').length > 0
   }
   
-  /**
-   * Update notification configuration
-   */
+  /** Update config */
   updateConfig(config: Partial<IToastConfig>): void {
-    this._config = { ...this._config, ...config }
+    this.config = { ...this.config, ...config }
   }
   
-  /**
-   * Get current configuration
-   */
+  /** Get config */
   getConfig(): IToastConfig {
-    return { ...this._config }
+    return { ...this.config }
   }
 }
 
-/**
- * Singleton instance export for easy access
- */
 export const notificationService = NotificationService.getInstance()

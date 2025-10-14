@@ -6,264 +6,163 @@ import { ThemeService } from '@/lib/services/ThemeService'
 import { LoadingState, IAuthCredentials } from '@/lib/types'
 
 /**
- * Login component controller class
- * Manages login form state, validation, and authentication operations
+ * LoginController - Manages login page logic
+ * 
+ * Handles form validation, authentication, and theme switching
  */
 export class LoginController {
   private formManager: FormManager
   private authService: AuthService
   private notificationService: NotificationService
   private themeService: ThemeService
-  private _showPassword: boolean = false
-  private _onStateChange?: (state: LoadingState) => void
-  private _onSuccess?: () => void
+  private showPassword: boolean = false
+  private stateChangeHandler?: (state: LoadingState) => void
+  private successHandler?: () => void
   
   constructor() {
+    // Get service instances
     this.authService = AuthService.getInstance()
     this.notificationService = NotificationService.getInstance()
     this.themeService = ThemeService.getInstance()
     
-    // Initialize form manager with validation rules
+    // Setup form
     this.formManager = new FormManager()
-    this.setupFormFields()
-    this.setupFormHandlers()
+    this.setupForm()
   }
   
-  /**
-   * Setup form fields with validation rules
-   */
-  private setupFormFields(): void {
-    // Email field with email validation
-    const emailField = new FormField(
-      'email',
-      ValidationRuleFactory.createEmailRules()
-    )
+  /** Setup form fields and handlers */
+  private setupForm(): void {
+    // Add fields
+    this.formManager.addField(new FormField('email', ValidationRuleFactory.createEmailRules()))
+    this.formManager.addField(new FormField('password', ValidationRuleFactory.createPasswordRules()))
+    this.formManager.addField(new FormField('rememberMe', []))
     
-    // Password field with basic validation
-    const passwordField = new FormField(
-      'password',
-      ValidationRuleFactory.createPasswordRules()
-    )
-    
-    // Remember me field (no validation needed)
-    const rememberMeField = new FormField('rememberMe', [])
-    
-    this.formManager.addField(emailField)
-    this.formManager.addField(passwordField)
-    this.formManager.addField(rememberMeField)
-  }
-  
-  /**
-   * Setup form submission handler
-   */
-  private setupFormHandlers(): void {
+    // Set submit handler
     this.formManager.setSubmitHandler(async (data) => {
-      await this.handleCredentialsLogin({
+      const result = await this.authService.signIn({
         email: data.email,
         password: data.password,
         rememberMe: data.rememberMe === 'true'
       })
-    })
-    
-    this.formManager.onStateChange((state) => {
-      this._onStateChange?.(state)
-    })
-  }
-  
-  /**
-   * Handle credentials-based login
-   */
-  private async handleCredentialsLogin(credentials: IAuthCredentials): Promise<void> {
-    const result = await this.authService.signIn(credentials)
-    
-    if (result.success) {
-      this._onSuccess?.()
-    } else {
-      throw new Error(result.error || 'Login failed')
-    }
-  }
-  
-  /**
-   * Handle Google OAuth login
-   */
-  async handleGoogleLogin(): Promise<void> {
-    try {
-      const result = await this.authService.signInWithGoogle()
       
       if (result.success) {
-        this._onSuccess?.()
+        this.successHandler?.()
       } else {
-        this.notificationService.auth.signInError(result.error)
+        throw new Error(result.error || 'Login failed')
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Google login failed'
-      this.notificationService.auth.signInError(message)
-    }
+    })
+    
+    // Listen to state changes
+    this.formManager.onStateChange((state) => this.stateChangeHandler?.(state))
   }
   
-  /**
-   * Submit the login form
-   */
+  /** Submit login form */
   async submitForm(): Promise<boolean> {
     return await this.formManager.submit()
   }
   
-  /**
-   * Set field value
-   */
-  setFieldValue(fieldName: string, value: string): void {
-    this.formManager.setFieldValue(fieldName, value)
+  /** Sign in with Google */
+  async handleGoogleLogin(): Promise<void> {
+    const result = await this.authService.signInWithGoogle()
+    if (result.success) {
+      this.successHandler?.()
+    } else {
+      this.notificationService.auth.signInError(result.error)
+    }
   }
   
-  /**
-   * Get field value
-   */
-  getFieldValue(fieldName: string): string {
-    return this.formManager.getFieldValue(fieldName)
+  // Form field methods
+  setFieldValue(name: string, value: string): void {
+    this.formManager.setFieldValue(name, value)
   }
   
-  /**
-   * Touch field (mark as interacted with)
-   */
-  touchField(fieldName: string): void {
-    this.formManager.touchField(fieldName)
+  getFieldValue(name: string): string {
+    return this.formManager.getFieldValue(name)
   }
   
-  /**
-   * Get field error message
-   */
-  getFieldError(fieldName: string): string | undefined {
-    return this.formManager.getField(fieldName)?.error
+  touchField(name: string): void {
+    this.formManager.touchField(name)
   }
   
-  /**
-   * Check if field has error
-   */
-  hasFieldError(fieldName: string): boolean {
-    return Boolean(this.getFieldError(fieldName))
+  getFieldError(name: string): string | undefined {
+    return this.formManager.getField(name)?.error
   }
   
-  /**
-   * Toggle password visibility
-   */
+  hasFieldError(name: string): boolean {
+    return Boolean(this.getFieldError(name))
+  }
+  
+  // Password visibility
   togglePasswordVisibility(): void {
-    this._showPassword = !this._showPassword
+    this.showPassword = !this.showPassword
   }
   
-  /**
-   * Get password visibility state
-   */
   isPasswordVisible(): boolean {
-    return this._showPassword
+    return this.showPassword
   }
   
-  /**
-   * Check if form is currently loading
-   */
+  // Loading state
   isLoading(): boolean {
     return this.formManager.isLoading() || this.authService.isLoading()
   }
   
-  /**
-   * Get current loading state
-   */
   getLoadingState(): LoadingState {
-    if (this.authService.isLoading()) {
-      return this.authService.getLoadingState()
-    }
-    return this.formManager.getLoadingState()
+    return this.authService.isLoading() 
+      ? this.authService.getLoadingState()
+      : this.formManager.getLoadingState()
   }
   
-  /**
-   * Reset form to initial state
-   */
+  // Reset
   reset(): void {
     this.formManager.reset()
-    this._showPassword = false
+    this.showPassword = false
   }
   
-  /**
-   * Toggle theme between light and dark
-   */
+  // Theme methods
   toggleTheme(): void {
     this.themeService.toggleTheme()
   }
   
-  /**
-   * Get current theme
-   */
   getCurrentTheme(): 'light' | 'dark' | 'system' {
     return this.themeService.getTheme()
   }
   
-  /**
-   * Get resolved theme (actual theme being applied)
-   */
   getResolvedTheme(): 'light' | 'dark' {
     return this.themeService.getResolvedTheme()
   }
   
-  /**
-   * Subscribe to theme changes
-   */
   subscribeToTheme(callback: (theme: string, resolvedTheme: string) => void): () => void {
     return this.themeService.subscribe(callback)
   }
   
-  /**
-   * Subscribe to authentication state changes
-   */
+  // Auth subscription
   subscribeToAuth(callback: (user: any) => void): () => void {
     return this.authService.subscribe(callback)
   }
   
-  /**
-   * Set state change handler
-   */
-  onStateChange(handler: (state: LoadingState) => void): void {
-    this._onStateChange = handler
+  // Event handlers
+  setStateChangeHandler(handler: (state: LoadingState) => void): void {
+    this.stateChangeHandler = handler
   }
   
-  /**
-   * Set success handler
-   */
-  onSuccess(handler: () => void): void {
-    this._onSuccess = handler
+  setSuccessHandler(handler: () => void): void {
+    this.successHandler = handler
   }
   
-  /**
-   * Get form data for debugging or other purposes
-   */
+  // Form data
   getFormData(): Record<string, string> {
     return this.formManager.getFormData()
   }
   
-  /**
-   * Get all form errors
-   */
   getFormErrors(): Record<string, string> {
     return this.formManager.getFormErrors()
   }
   
-  /**
-   * Check if form has any validation errors
-   */
   hasFormErrors(): boolean {
     return this.formManager.hasErrors()
   }
   
-  /**
-   * Validate entire form
-   */
   validateForm(): boolean {
     return this.formManager.validateForm()
-  }
-  
-  /**
-   * Cleanup resources when component unmounts
-   */
-  dispose(): void {
-    // Clean up any subscriptions or resources
-    // This would be called in useEffect cleanup
   }
 }
