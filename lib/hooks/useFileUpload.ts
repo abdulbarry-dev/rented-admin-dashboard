@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { validateFile } from '../validations/id-upload.validation';
+import { validateFile } from './../validation/id-upload.schema';
 import { readFileAsDataURL } from '../utils/file.utils';
 
 export interface UploadedFile {

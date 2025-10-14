@@ -8,7 +8,7 @@ import {
   VerificationRequirements,
   VerificationSubmitPayload,
   VerificationStatus,
-} from '../../../lib/verification'
+} from '../verification'
 import { toast } from 'sonner'
 
 interface UseVerificationReturn {

@@ -1,95 +1,114 @@
-import { FormManager, FormField } from '@/lib/form/FormManager'
-import { ValidationRuleFactory } from '@/lib/validation/rules'
 import { AuthService } from '@/lib/services/AuthService'
 import { NotificationService } from '@/lib/services/NotificationService'
 import { ThemeService } from '@/lib/services/ThemeService'
-import { LoadingState, IAuthCredentials } from '@/lib/types'
+import { LoadingState } from '@/lib/types'
+import { loginSchema, validateLoginCredentials, type LoginFormInput } from '@/lib/validation'
 
 /**
  * LoginController - Manages login page logic
  * 
- * Handles form validation, authentication, and theme switching
+ * Handles form validation, authentication, and theme switching using Zod schemas
  */
 export class LoginController {
-  private formManager: FormManager
   private authService: AuthService
   private notificationService: NotificationService
   private themeService: ThemeService
   private showPassword: boolean = false
   private stateChangeHandler?: (state: LoadingState) => void
   private successHandler?: () => void
+  private formData: LoginFormInput = {
+    login: '',
+    password: '',
+    rememberMe: false,
+  }
+  private formErrors: Record<string, string> = {}
+  private isSubmitting: boolean = false
+  private loadingState: LoadingState = LoadingState.IDLE
   
   constructor() {
     // Get service instances
     this.authService = AuthService.getInstance()
     this.notificationService = NotificationService.getInstance()
     this.themeService = ThemeService.getInstance()
-    
-    // Setup form
-    this.formManager = new FormManager()
-    this.setupForm()
-  }
-  
-  /** Setup form fields and handlers */
-  private setupForm(): void {
-    // Add fields
-    this.formManager.addField(new FormField('email', ValidationRuleFactory.createEmailRules()))
-    this.formManager.addField(new FormField('password', ValidationRuleFactory.createPasswordRules()))
-    this.formManager.addField(new FormField('rememberMe', []))
-    
-    // Set submit handler
-    this.formManager.setSubmitHandler(async (data) => {
-      const result = await this.authService.signIn({
-        email: data.email,
-        password: data.password,
-        rememberMe: data.rememberMe === 'true'
-      })
-      
-      if (result.success) {
-        this.successHandler?.()
-      } else {
-        throw new Error(result.error || 'Login failed')
-      }
-    })
-    
-    // Listen to state changes
-    this.formManager.onStateChange((state) => this.stateChangeHandler?.(state))
   }
   
   /** Submit login form */
   async submitForm(): Promise<boolean> {
-    return await this.formManager.submit()
-  }
-  
-  /** Sign in with Google */
-  async handleGoogleLogin(): Promise<void> {
-    const result = await this.authService.signInWithGoogle()
-    if (result.success) {
-      this.successHandler?.()
-    } else {
-      this.notificationService.auth.signInError(result.error)
+    // Validate form data
+    const validation = validateLoginCredentials(this.formData)
+    
+    console.log('📝 LoginController.submitForm - formData:', this.formData)
+    console.log('✔️ LoginController.submitForm - validation:', validation)
+    
+    if (!validation.success) {
+      this.formErrors = validation.errors || {}
+      return false
+    }
+    
+    this.isSubmitting = true
+    this.loadingState = LoadingState.LOADING
+    this.stateChangeHandler?.(LoadingState.LOADING)
+    
+    try {
+      const result = await this.authService.signIn({
+        login: validation.data!.login,
+        password: validation.data!.password,
+        rememberMe: validation.data!.rememberMe,
+      })
+      
+      console.log('🎯 LoginController.submitForm - authService result:', result)
+      
+      if (result.success) {
+        this.loadingState = LoadingState.SUCCESS
+        this.stateChangeHandler?.(LoadingState.SUCCESS)
+        this.successHandler?.()
+        return true
+      } else {
+        this.loadingState = LoadingState.ERROR
+        this.stateChangeHandler?.(LoadingState.ERROR)
+        this.notificationService.auth.signInError(result.error)
+        return false
+      }
+    } catch (error) {
+      this.loadingState = LoadingState.ERROR
+      this.stateChangeHandler?.(LoadingState.ERROR)
+      this.notificationService.auth.signInError('Login failed')
+      return false
+    } finally {
+      this.isSubmitting = false
     }
   }
   
   // Form field methods
-  setFieldValue(name: string, value: string): void {
-    this.formManager.setFieldValue(name, value)
+  setFieldValue(name: keyof LoginFormInput, value: string | boolean): void {
+    this.formData[name] = value as never
+    // Clear error for this field when value changes
+    delete this.formErrors[name]
   }
   
-  getFieldValue(name: string): string {
-    return this.formManager.getFieldValue(name)
+  getFieldValue(name: keyof LoginFormInput): string | boolean {
+    return this.formData[name]
   }
   
-  touchField(name: string): void {
-    this.formManager.touchField(name)
+  touchField(name: keyof LoginFormInput): void {
+    // Validate single field
+    const result = loginSchema.safeParse(this.formData)
+    if (!result.success) {
+      const fieldError = result.error.issues.find(issue => issue.path[0] === name)
+      if (fieldError) {
+        this.formErrors[name] = fieldError.message
+      }
+    } else {
+      delete this.formErrors[name]
+    }
   }
   
-  getFieldError(name: string): string | undefined {
-    return this.formManager.getField(name)?.error
+  getFieldError(name: keyof LoginFormInput): string | undefined {
+    return this.formErrors[name]
   }
   
-  hasFieldError(name: string): boolean {
-    return Boolean(this.getFieldError(name))
+  hasFieldError(name: keyof LoginFormInput): boolean {
+    return Boolean(this.formErrors[name])
   }
   
   // Password visibility
@@ -103,19 +122,27 @@ export class LoginController {
   
   // Loading state
   isLoading(): boolean {
-    return this.formManager.isLoading() || this.authService.isLoading()
+    return this.isSubmitting || this.authService.isLoading()
   }
   
   getLoadingState(): LoadingState {
-    return this.authService.isLoading() 
-      ? this.authService.getLoadingState()
-      : this.formManager.getLoadingState()
+    if (this.authService.isLoading()) {
+      return this.authService.getLoadingState()
+    }
+    return this.loadingState
   }
   
   // Reset
   reset(): void {
-    this.formManager.reset()
+    this.formData = {
+      login: '',
+      password: '',
+      rememberMe: false,
+    }
+    this.formErrors = {}
     this.showPassword = false
+    this.isSubmitting = false
+    this.loadingState = LoadingState.IDLE
   }
   
   // Theme methods
@@ -150,19 +177,27 @@ export class LoginController {
   }
   
   // Form data
-  getFormData(): Record<string, string> {
-    return this.formManager.getFormData()
+  getFormData(): LoginFormInput {
+    return { ...this.formData }
   }
   
   getFormErrors(): Record<string, string> {
-    return this.formManager.getFormErrors()
+    return { ...this.formErrors }
   }
   
   hasFormErrors(): boolean {
-    return this.formManager.hasErrors()
+    return Object.keys(this.formErrors).length > 0
   }
   
   validateForm(): boolean {
-    return this.formManager.validateForm()
+    const validation = validateLoginCredentials(this.formData)
+    
+    if (!validation.success) {
+      this.formErrors = validation.errors || {}
+      return false
+    }
+    
+    this.formErrors = {}
+    return true
   }
 }

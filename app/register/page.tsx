@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   UserPlus,
   Mail,
@@ -16,18 +17,17 @@ import {
 import Link from 'next/link'
 import TermsModal from '../components/TermsModal'
 import PrivacyModal from '../components/PrivacyModal'
-import IDCardUpload from '../components/IDCardUpload'
-import { registerWithDocuments } from '../../lib/auth'
 import { toast } from 'sonner'
-import { registerSchema } from '../lib/validations/register.validation'
+import { registerSchema } from './../../lib/validation/register.schema'
 import { z } from 'zod'
+import { register } from '@/lib/auth'
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
-  const [showIDUpload, setShowIDUpload] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     fullName: '',
@@ -107,12 +107,37 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoading(true)
 
     try {
+      // Validate form data
       registerSchema.parse(formData)
       setFieldErrors({})
-    } catch (error) {
+      
+      // Prepare registration payload
+      const payload = {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        passwordConfirmation: formData.confirmPassword,
+        gender: formData.gender,
+      }
+
+      // Make API call using the register function from auth.ts
+      await register(payload)
+
+      // Success - show message and redirect
+      toast.success('Account created successfully! Please sign in.')
+      
+      // Redirect to login page after a brief delay
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
+      
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
+        // Handle Zod validation errors
         const errors: Record<string, string> = {}
         error.issues.forEach((issue) => {
           if (issue.path[0]) {
@@ -129,72 +154,32 @@ export default function RegisterPage() {
           gender: true,
         })
         toast.error('Please fix the errors in the form')
-        return
-      }
-    }
-
-    // Show ID upload modal instead of submitting immediately
-    setShowIDUpload(true)
-  }
-
-  const handleIDUploadComplete = async (files: { front: File; back: File }) => {
-    setLoading(true)
-    
-    try {
-      const payload = {
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        passwordConfirmation: formData.confirmPassword,
-        gender: formData.gender,
-        idFront: files.front,
-        idBack: files.back,
-      }
-
-      await registerWithDocuments(payload)
-      toast.success('Account created and verification submitted successfully!')
-      setShowIDUpload(false)
-      
-      // Optionally redirect to dashboard or login
-      // router.push('/dashboard')
-    } catch (err: any) {
-      if (err?.response?.data?.errors) {
+      } else if (error?.response?.data?.errors) {
+        // Handle backend validation errors
         const backendErrors: Record<string, string> = {}
-        const errors = err.response.data.errors
+        const errors = error.response.data.errors
         
         Object.keys(errors).forEach((key) => {
           const errorMessages = Array.isArray(errors[key]) ? errors[key] : [errors[key]]
           const mappedKey = key === 'name' ? 'fullName' 
             : key === 'password_confirmation' ? 'confirmPassword'
-            : key === 'id_front' ? 'idFront'
-            : key === 'id_back' ? 'idBack'
+            : key === 'phone_number' ? 'phone'
             : key
           backendErrors[mappedKey] = errorMessages[0]
         })
         
         setFieldErrors(backendErrors)
         toast.error('Please fix the validation errors')
-        
-        // If ID document errors, keep modal open
-        if (errors.id_front || errors.id_back) {
-          return
-        } else {
-          setShowIDUpload(false)
-        }
-      } 
-      else if (err?.response?.data?.message) {
-        toast.error(err.response.data.message)
-        setShowIDUpload(false)
-      } 
-      else if (err?.response?.status) {
-        const message = getHttpErrorMessage(err.response.status)
+      } else if (error?.response?.data?.message) {
+        // Handle error messages from backend
+        toast.error(error.response.data.message)
+      } else if (error?.response?.status) {
+        // Handle HTTP status errors
+        const message = getHttpErrorMessage(error.response.status)
         toast.error(message)
-        setShowIDUpload(false)
-      } 
-      else {
+      } else {
+        // Handle network errors
         toast.error('Network error. Please check your connection and try again.')
-        setShowIDUpload(false)
       }
     } finally {
       setLoading(false)
@@ -202,54 +187,53 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen h-screen bg-[#0a0a0a] text-[#ededed] flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-hidden">
+    <div className="min-h-screen h-screen bg-[#0a0a0a] text-[#ededed] flex items-center justify-center overflow-hidden">
       {/* Background gradient effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="w-full max-w-7xl h-full max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] flex gap-4 lg:gap-8 items-center relative z-10">
+      <div className="w-full h-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 xl:gap-8 items-center relative z-10 p-3 md:p-4 lg:p-6">
         {/* Left Side - Branding */}
-        <div className="hidden lg:flex flex-1 flex-col gap-4 xl:gap-6 h-full justify-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 xl:w-12 xl:h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 text-white" />
+        <div className="hidden lg:flex flex-col gap-4 xl:gap-5 justify-center max-w-lg mx-auto">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl xl:text-2xl font-bold">HR Manager</h1>
-              <p className="text-xs xl:text-sm text-gray-400">Admin Dashboard</p>
+              <h1 className="text-lg xl:text-xl font-bold leading-tight">HR Manager</h1>
+              <p className="text-xs text-gray-400">Admin Dashboard</p>
             </div>
           </div>
           
-          <div className="space-y-4 xl:space-y-6">
-            <h2 className="text-3xl xl:text-4xl font-bold leading-tight">
+          <div className="space-y-3 xl:space-y-4">
+            <h2 className="text-2xl xl:text-3xl font-bold leading-tight">
               Join Our<br />
               <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                 HR Platform
               </span>
             </h2>
-            <p className="text-gray-400 text-base xl:text-lg leading-relaxed">
-              Manage your workforce efficiently with our comprehensive HR management system. 
-              Track employees, monitor performance, and streamline your HR processes.
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Manage your workforce efficiently with our comprehensive HR management system.
             </p>
             
-            <div className="space-y-3 xl:space-y-4 pt-2">
-              <div className="flex items-center gap-3 text-gray-300 text-sm xl:text-base">
-                <div className="w-7 h-7 xl:w-8 xl:h-8 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-purple-500">✓</span>
+            <div className="space-y-2.5 pt-1">
+              <div className="flex items-center gap-2.5 text-gray-300 text-sm">
+                <div className="w-6 h-6 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-500 text-xs">✓</span>
                 </div>
                 <span>Real-time employee tracking</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-300 text-sm xl:text-base">
-                <div className="w-7 h-7 xl:w-8 xl:h-8 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-purple-500">✓</span>
+              <div className="flex items-center gap-2.5 text-gray-300 text-sm">
+                <div className="w-6 h-6 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-500 text-xs">✓</span>
                 </div>
                 <span>Advanced analytics & reporting</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-300 text-sm xl:text-base">
-                <div className="w-7 h-7 xl:w-8 xl:h-8 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-purple-500">✓</span>
+              <div className="flex items-center gap-2.5 text-gray-300 text-sm">
+                <div className="w-6 h-6 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-500 text-xs">✓</span>
                 </div>
                 <span>Secure & compliant platform</span>
               </div>
@@ -258,32 +242,32 @@ export default function RegisterPage() {
         </div>
 
         {/* Right Side - Registration Form */}
-        <div className="flex-1 w-full h-full flex flex-col justify-center">
-          <div className="bg-[#141414] border border-gray-800 rounded-xl lg:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-2xl backdrop-blur-xl max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+        <div className="w-full max-w-lg mx-auto h-full flex flex-col justify-center">
+          <div className="bg-[#141414] border border-gray-800 rounded-xl lg:rounded-2xl p-4 md:p-5 lg:p-6 shadow-2xl backdrop-blur-xl max-h-[calc(100vh-1.5rem)] md:max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
             {/* Mobile Logo */}
-            <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
+            <div className="lg:hidden flex items-center justify-center gap-2 mb-3">
               <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-bold">HR Manager</span>
+              <span className="text-base font-bold">HR Manager</span>
             </div>
 
-            <div className="mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500" />
-                <h2 className="text-xl sm:text-2xl font-bold">Create Account</h2>
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-1">
+                <UserPlus className="w-4 h-4 text-purple-500" />
+                <h2 className="text-lg font-bold">Create Account</h2>
               </div>
-              <p className="text-gray-400 text-sm sm:text-base">Fill in your details to get started</p>
+              <p className="text-gray-400 text-xs">Fill in your details to get started</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2.5">
               {/* Full Name Field */}
-              <div className="space-y-1.5">
-                <label htmlFor="fullName" className="text-xs sm:text-sm font-medium text-gray-300">
+              <div className="space-y-0.5">
+                <label htmlFor="fullName" className="text-xs font-medium text-gray-300">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                  <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     type="text"
                     id="fullName"
@@ -295,7 +279,7 @@ export default function RegisterPage() {
                       touched.fullName && fieldErrors.fullName
                         ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                         : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
-                    } rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
+                    } rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                     placeholder="John Doe"
                     required
                     aria-invalid={touched.fullName && !!fieldErrors.fullName}
@@ -303,22 +287,22 @@ export default function RegisterPage() {
                   />
                 </div>
                 {touched.fullName && fieldErrors.fullName && (
-                  <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="fullName-error" role="alert">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <div className="flex items-center gap-1 text-red-500 text-xs" id="fullName-error" role="alert">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
                     <span>{fieldErrors.fullName}</span>
                   </div>
                 )}
               </div>
 
-              {/* Email & Phone in Grid on larger screens */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {/* Email & Phone in Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Email */}
-                <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-xs sm:text-sm font-medium text-gray-300">
+                <div className="space-y-0.5">
+                  <label htmlFor="email" className="text-xs font-medium text-gray-300">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
                       type="email"
                       id="email"
@@ -330,7 +314,7 @@ export default function RegisterPage() {
                         touched.email && fieldErrors.email
                           ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
-                      } rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
+                      } rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="john@example.com"
                       required
                       aria-invalid={touched.email && !!fieldErrors.email}
@@ -338,20 +322,20 @@ export default function RegisterPage() {
                     />
                   </div>
                   {touched.email && fieldErrors.email && (
-                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="email-error" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <div className="flex items-center gap-1 text-red-500 text-xs" id="email-error" role="alert">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
                       <span>{fieldErrors.email}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Phone Number */}
-                <div className="space-y-1.5">
-                  <label htmlFor="phone" className="text-xs sm:text-sm font-medium text-gray-300">
+                <div className="space-y-0.5">
+                  <label htmlFor="phone" className="text-xs font-medium text-gray-300">
                     Phone Number
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                    <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
                       type="tel"
                       id="phone"
@@ -363,7 +347,7 @@ export default function RegisterPage() {
                         touched.phone && fieldErrors.phone
                           ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
-                      } rounded-lg pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
+                      } rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="+1 (555) 000-0000"
                       required
                       aria-invalid={touched.phone && !!fieldErrors.phone}
@@ -371,8 +355,8 @@ export default function RegisterPage() {
                     />
                   </div>
                   {touched.phone && fieldErrors.phone && (
-                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="phone-error" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <div className="flex items-center gap-1 text-red-500 text-xs" id="phone-error" role="alert">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
                       <span>{fieldErrors.phone}</span>
                     </div>
                   )}
@@ -380,13 +364,13 @@ export default function RegisterPage() {
               </div>
 
               {/* Gender Selection */}
-              <div className="space-y-1.5">
-                <label className="text-xs sm:text-sm font-medium text-gray-300">
+              <div className="space-y-0.5">
+                <label className="text-xs font-medium text-gray-300">
                   Gender
                 </label>
-                <div className="flex gap-4">
+                <div className="flex gap-3">
                   {/* Male Option */}
-                  <label className="flex items-center gap-2 cursor-pointer group">
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
                     <input
                       type="radio"
                       name="gender"
@@ -398,13 +382,13 @@ export default function RegisterPage() {
                       required
                       aria-invalid={touched.gender && !!fieldErrors.gender}
                     />
-                    <span className="text-sm sm:text-base text-gray-300 group-hover:text-white transition-colors">
+                    <span className="text-xs text-gray-300 group-hover:text-white transition-colors">
                       Male
                     </span>
                   </label>
 
                   {/* Female Option */}
-                  <label className="flex items-center gap-2 cursor-pointer group">
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
                     <input
                       type="radio"
                       name="gender"
@@ -415,28 +399,28 @@ export default function RegisterPage() {
                       className="w-4 h-4 text-purple-600 bg-[#1a1a1a] border-gray-700 focus:ring-purple-500 focus:ring-2 cursor-pointer"
                       aria-invalid={touched.gender && !!fieldErrors.gender}
                     />
-                    <span className="text-sm sm:text-base text-gray-300 group-hover:text-white transition-colors">
+                    <span className="text-xs text-gray-300 group-hover:text-white transition-colors">
                       Female
                     </span>
                   </label>
                 </div>
                 {touched.gender && fieldErrors.gender && (
-                  <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="gender-error" role="alert">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <div className="flex items-center gap-1 text-red-500 text-xs" id="gender-error" role="alert">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
                     <span>{fieldErrors.gender}</span>
                   </div>
                 )}
               </div>
 
               {/* Password Fields in Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Password */}
-                <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-xs sm:text-sm font-medium text-gray-300">
+                <div className="space-y-0.5">
+                  <label htmlFor="password" className="text-xs font-medium text-gray-300">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                    <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       id="password"
@@ -448,7 +432,7 @@ export default function RegisterPage() {
                         touched.password && fieldErrors.password
                           ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
-                      } rounded-lg pl-9 sm:pl-10 pr-10 sm:pr-12 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
+                      } rounded-lg pl-8 pr-9 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="Strong password"
                       required
                       aria-invalid={touched.password && !!fieldErrors.password}
@@ -457,27 +441,28 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10 cursor-pointer"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   {touched.password && fieldErrors.password && (
-                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="password-error" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <div className="flex items-center gap-1 text-red-500 text-xs" id="password-error" role="alert">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
                       <span>{fieldErrors.password}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Confirm Password */}
-                <div className="space-y-1.5">
-                  <label htmlFor="confirmPassword" className="text-xs sm:text-sm font-medium text-gray-300">
+                <div className="space-y-0.5">
+                  <label htmlFor="confirmPassword" className="text-xs font-medium text-gray-300">
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                    <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       id="confirmPassword"
@@ -489,7 +474,7 @@ export default function RegisterPage() {
                         touched.confirmPassword && fieldErrors.confirmPassword
                           ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-700 focus:border-purple-500 focus:ring-purple-500'
-                      } rounded-lg pl-9 sm:pl-10 pr-10 sm:pr-12 py-2 sm:py-2.5 text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
+                      } rounded-lg pl-8 pr-9 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all`}
                       placeholder="Re-enter password"
                       required
                       aria-invalid={touched.confirmPassword && !!fieldErrors.confirmPassword}
@@ -498,15 +483,16 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10 cursor-pointer"
                       aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
                     >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   {touched.confirmPassword && fieldErrors.confirmPassword && (
-                    <div className="flex items-center gap-1.5 text-red-500 text-xs sm:text-sm" id="confirmPassword-error" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <div className="flex items-center gap-1 text-red-500 text-xs" id="confirmPassword-error" role="alert">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
                       <span>{fieldErrors.confirmPassword}</span>
                     </div>
                   )}
@@ -514,14 +500,14 @@ export default function RegisterPage() {
               </div>
 
               {/* Terms & Conditions */}
-              <div className="flex items-start gap-2 sm:gap-3">
+              <div className="flex items-start gap-1.5">
                 <input
                   type="checkbox"
                   id="terms"
-                  className="mt-0.5 sm:mt-1 w-4 h-4 rounded border-gray-600 bg-[#1a1a1a] text-purple-600 focus:ring-purple-500 focus:ring-offset-0 flex-shrink-0"
+                  className="mt-0.5 w-4 h-4 rounded border-gray-600 bg-[#1a1a1a] text-purple-600 focus:ring-purple-500 focus:ring-offset-0 flex-shrink-0"
                   required
                 />
-                <label htmlFor="terms" className="text-xs sm:text-sm text-gray-400 leading-tight sm:leading-normal">
+                <label htmlFor="terms" className="text-xs text-gray-400 leading-tight">
                   I agree to the{' '}
                   <button
                     type="button"
@@ -545,7 +531,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full font-medium py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg transition-all flex items-center justify-center gap-2 group shadow-lg shadow-purple-600/20 text-sm sm:text-base ${
+                className={`w-full font-medium py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2 group shadow-lg shadow-purple-600/20 text-sm ${
                   loading
                     ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                     : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
@@ -553,7 +539,7 @@ export default function RegisterPage() {
               >
                 {loading ? (
                   <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -562,17 +548,17 @@ export default function RegisterPage() {
                 ) : (
                   <>
                     Create Account
-                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
 
               {/* Sign In Link */}
-              <div className="text-center pt-1 sm:pt-2">
-                <p className="text-gray-400 text-xs sm:text-sm">
+              <div className="text-center pt-0.5">
+                <p className="text-gray-400 text-xs">
                   Already have an account?{' '}
                   <Link 
-                    href="/pages/login" 
+                    href="/login" 
                     className="text-purple-500 hover:text-purple-400 font-medium transition-colors"
                   >
                     Sign in
@@ -587,12 +573,6 @@ export default function RegisterPage() {
       {/* Modals */}
       <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} />
       <PrivacyModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
-      <IDCardUpload 
-        isOpen={showIDUpload} 
-        onClose={() => setShowIDUpload(false)}
-        onUploadComplete={handleIDUploadComplete}
-        isSubmitting={loading}
-      />
     </div>
   );
 }

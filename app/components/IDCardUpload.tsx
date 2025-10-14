@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Upload, X, CheckCircle2, FileText, AlertCircle } from 'lucide-react';
-import { useFileUpload } from '../lib/hooks/useFileUpload';
+import { useFileUpload } from '../../lib/hooks/useFileUpload';
 import { FileUploadZone } from './FileUploadZone';
 import { StepIndicators } from './StepIndicator';
 

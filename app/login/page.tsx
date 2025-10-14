@@ -1,468 +1,134 @@
+/**
+ * Login Page
+ * 
+ * Authentication page for HR Manager admin dashboard.
+ * Features include:
+ * - Email/password authentication
+ * - Remember me functionality
+ * - Password visibility toggle
+ * - Mobile help drawer
+ * - Responsive design with branding sidebar
+ * 
+ * @page
+ */
+
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Moon, Sun, X, Menu, HelpCircle, Shield, Smartphone, Mail } from 'lucide-react'
-import * as Switch from '@radix-ui/react-switch'
-import { Drawer } from 'vaul'
-import { LoginController } from '@/lib/controllers/LoginController'
-import { LoadingState } from '@/lib/types'
+import { useLoginForm } from './hooks/useLoginForm'
+import {
+  BackgroundEffects,
+  BrandingSidebar,
+  FormInput,
+  HelpDrawer,
+  LoadingButton,
+  MobileLogo,
+  PasswordInput,
+  RememberMeSwitch,
+} from './components'
 
 export default function LoginPage() {
   const router = useRouter()
-  const controllerRef = useRef<LoginController | null>(null)
-  const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.IDLE)
-  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark' | 'system'>('system')
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    rememberMe: false
-  })
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-
-  // Initialize controller
-  useEffect(() => {
-    if (!controllerRef.current) {
-      const controller = new LoginController()
-      
-      // Setup event handlers
-      controller.setStateChangeHandler((state) => {
-        setLoadingState(state)
-      })
-      
-      controller.setSuccessHandler(() => {
-        router.push('/dashboard')
-      })
-      
-      // Subscribe to theme changes
-      const unsubscribeTheme = controller.subscribeToTheme((theme, resolved) => {
-        setCurrentTheme(theme as 'light' | 'dark' | 'system')
-        setResolvedTheme(resolved as 'light' | 'dark')
-      })
-      
-      controllerRef.current = controller
-      
-      // Cleanup on unmount
-      return () => {
-        unsubscribeTheme()
-      }
-    }
-  }, [router])
-
-  const getController = (): LoginController => {
-    if (!controllerRef.current) {
-      throw new Error('Controller not initialized')
-    }
-    return controllerRef.current
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target
-    const finalValue = type === 'checkbox' ? String(checked) : value
-    
-    // Update controller
-    getController().setFieldValue(name, finalValue)
-    
-    // Update local state for UI
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-    
-    // Clear field error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
-    }
-  }
-
-  const handleSwitchChange = (checked: boolean) => {
-    const mockEvent = {
-      target: {
-        name: 'rememberMe',
-        type: 'checkbox',
-        checked: checked,
-        value: String(checked)
-      }
-    } as React.ChangeEvent<HTMLInputElement>
-    
-    handleInputChange(mockEvent)
-  }
-
-  const handleInputBlur = (fieldName: string) => {
-    getController().touchField(fieldName)
-    
-    // Update errors state
-    const error = getController().getFieldError(fieldName)
-    if (error) {
-      setFormErrors(prev => ({
-        ...prev,
-        [fieldName]: error
-      }))
-    }
-  }
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    const success = await getController().submitForm()
-    
-    if (!success) {
-      // Update form errors
-      setFormErrors(getController().getFormErrors())
-    }
-  }
-
-  const handleGoogleLogin = async () => {
-    await getController().handleGoogleLogin()
-  }
-
-  const toggleTheme = () => {
-    getController().toggleTheme()
-  }
-
-  const togglePasswordVisibility = () => {
-    getController().togglePasswordVisibility()
-  }
-
-  const isLoading = loadingState === LoadingState.LOADING
-  const showPassword = controllerRef.current?.isPasswordVisible() || false
+  
+  const {
+    formData,
+    formErrors,
+    isLoading,
+    handleInputChange,
+    handleSwitchChange,
+    handleInputBlur,
+    handleSubmit,
+  } = useLoginForm()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 flex items-center justify-center p-4 relative">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-grid-slate-100 dark:bg-grid-slate-800 bg-[size:20px_20px] opacity-50" />
-      
-      {/* Top Navigation */}
-      <div className="absolute top-6 right-6 flex items-center space-x-3">
-        {/* Mobile Help Menu Button */}
-        <button
-          onClick={() => setIsDrawerOpen(true)}
-          className="md:hidden p-3 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 dark:border-slate-700"
-        >
-          <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-        </button>
-        
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="p-3 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 dark:border-slate-700"
-        >
-          {resolvedTheme === 'dark' ? (
-            <Sun className="w-5 h-5 text-amber-500" />
-          ) : (
-            <Moon className="w-5 h-5 text-slate-600" />
-          )}
-        </button>
-      </div>
+    <div className="min-h-screen h-screen bg-[#0a0a0a] text-[#ededed] flex items-center justify-center overflow-hidden">
+      <BackgroundEffects />
 
-      {/* Main Login Container */}
-      <div className="w-full max-w-md relative">
-        {/* Background Blur Card */}
-        <div className="absolute inset-0 bg-white/20 dark:bg-slate-800/20 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl" />
-        
-        {/* Content */}
-        <div className="relative p-8 md:p-10">
-          {/* Logo & Title */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 mb-6 shadow-lg">
-              <X className="w-8 h-8 text-white rotate-45" />
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-              HR Manager
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400">
-              Sign in to access your dashboard
-            </p>
-          </div>
+      <div className="w-full h-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 xl:gap-8 items-center relative z-10 p-3 md:p-4 lg:p-6">
+        <BrandingSidebar />
 
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-6">
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                onBlur={() => handleInputBlur('email')}
-                placeholder="Enter your email"
-                className={`w-full px-4 py-3 rounded-xl border backdrop-blur-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                  formErrors.email 
-                    ? 'border-red-500 focus:ring-red-500 bg-red-50/50 dark:bg-red-900/20' 
-                    : 'border-slate-300 dark:border-slate-600 bg-white/50 dark:bg-slate-800/50 focus:ring-violet-500'
-                }`}
-                required
-              />
-              {formErrors.email && (
-                <p className="text-sm text-red-600 mt-1">{formErrors.email}</p>
-              )}
-            </div>
+        {/* Login Form Container */}
+        <div className="w-full max-w-lg mx-auto h-full flex flex-col justify-center">
+          <div className="bg-[#141414] border border-gray-800 rounded-xl lg:rounded-2xl p-4 md:p-5 lg:p-6 shadow-2xl backdrop-blur-xl max-h-[calc(100vh-1.5rem)] md:max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <MobileLogo />
 
-            {/* Password Field */}
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  onBlur={() => handleInputBlur('password')}
-                  placeholder="Enter your password"
-                  className={`w-full px-4 py-3 pr-12 rounded-xl border backdrop-blur-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                    formErrors.password 
-                      ? 'border-red-500 focus:ring-red-500 bg-red-50/50 dark:bg-red-900/20' 
-                      : 'border-slate-300 dark:border-slate-600 bg-white/50 dark:bg-slate-800/50 focus:ring-violet-500'
-                  }`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={togglePasswordVisibility}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {formErrors.password && (
-                <p className="text-sm text-red-600 mt-1">{formErrors.password}</p>
-              )}
-            </div>
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Switch.Root
-                  checked={formData.rememberMe}
-                  onCheckedChange={handleSwitchChange}
-                  className="w-11 h-6 bg-slate-300 dark:bg-slate-600 rounded-full relative data-[state=checked]:bg-violet-500 transition-colors duration-200"
-                >
-                  <Switch.Thumb className="block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-200 data-[state=checked]:translate-x-5 translate-x-0.5" />
-                </Switch.Root>
-                <label className="text-sm text-slate-600 dark:text-slate-400">
-                  Remember me
-                </label>
-              </div>
-              
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(true)}
-                className="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium transition-colors"
-              >
-                Forgot password?
-              </button>
-            </div>
-
-            {/* Login Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Signing in...</span>
-                </div>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-
-            {/* Divider */}
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-300 dark:border-slate-600" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 backdrop-blur-sm rounded-full">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            {/* Google OAuth Button */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              className="w-full py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm hover:bg-white/70 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-300 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-          </form>
-
-          {/* Sign Up Link */}
-          <p className="text-center mt-8 text-sm text-slate-600 dark:text-slate-400">
-            Don't have an account?{' '}
-            <button 
-              onClick={() => setIsDrawerOpen(true)}
-              className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium transition-colors"
-            >
-              Sign up here
-            </button>
-          </p>
-        </div>
-      </div>
-
-      {/* Mobile Help Drawer */}
-      <Drawer.Root open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" />
-          <Drawer.Content className="bg-white dark:bg-slate-900 flex flex-col rounded-t-[10px] h-fit mt-24 max-h-[80vh] fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 dark:border-slate-700">
-            {/* Drawer Handle */}
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-slate-300 dark:bg-slate-600 mt-4" />
-            
-            {/* Drawer Header */}
-            <div className="p-6 pb-4">
-              <Drawer.Title className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                Need Help?
-              </Drawer.Title>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">
-                Get help with your login or learn more about HR Manager
+            {/* Form Header */}
+            <div className="text-center mb-4 md:mb-5">
+              <h2 className="text-lg md:text-xl font-bold text-white mb-1">
+                Welcome Back
+              </h2>
+              <p className="text-gray-400 text-xs">
+                Sign in to your HR Manager account
               </p>
             </div>
 
-            {/* Drawer Content */}
-            <div className="px-6 pb-6 overflow-y-auto">
-              <div className="space-y-4">
-                {/* Quick Actions */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                    Quick Actions
-                  </h3>
-                  
-                  {/* Forgot Password */}
-                  <button className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                      <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-slate-900 dark:text-slate-100">Reset Password</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">Get help accessing your account</p>
-                    </div>
-                  </button>
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <FormInput
+                label="Email or Phone Number"
+                type="text"
+                name="login"
+                value={formData.login}
+                onChange={handleInputChange}
+                onBlur={() => handleInputBlur('login')}
+                placeholder="your.email@company.com or +1234567890"
+                error={formErrors.login}
+                required
+              />
 
-                  {/* Contact Support */}
-                  <button className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                      <Mail className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-slate-900 dark:text-slate-100">Contact Support</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">Get in touch with our team</p>
-                    </div>
-                  </button>
+              <PasswordInput
+                label="Password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                onBlur={() => handleInputBlur('password')}
+                placeholder="Enter your password"
+                error={formErrors.password}
+                required
+              />
 
-                  {/* Mobile App */}
-                  <button className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                      <Smartphone className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-slate-900 dark:text-slate-100">Mobile App</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">Download our mobile app</p>
-                    </div>
-                  </button>
-                </div>
-
-                {/* About */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                    About HR Manager
-                  </h3>
-                  
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border border-violet-200 dark:border-violet-800">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
-                        <HelpCircle className="w-5 h-5 text-white" />
-                      </div>
-                      <h4 className="font-medium text-slate-900 dark:text-slate-100">Enterprise HR Solution</h4>
-                    </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Streamline your HR processes with our comprehensive dashboard. 
-                      Manage employees, track performance, and gain insights with powerful analytics.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Login Tips */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                    Login Tips
-                  </h3>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-start space-x-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <div className="w-2 h-2 rounded-full bg-violet-500 mt-2 flex-shrink-0" />
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Use your company email address to sign in
-                      </p>
-                    </div>
-                    <div className="flex items-start space-x-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <div className="w-2 h-2 rounded-full bg-violet-500 mt-2 flex-shrink-0" />
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Enable "Remember me" for faster future logins
-                      </p>
-                    </div>
-                    <div className="flex items-start space-x-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <div className="w-2 h-2 rounded-full bg-violet-500 mt-2 flex-shrink-0" />
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Use Google OAuth for single sign-on convenience
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between pt-0.5">
+                <RememberMeSwitch
+                  checked={formData.rememberMe}
+                  onCheckedChange={handleSwitchChange}
+                />
+                
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="text-xs text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                >
+                  Forgot password?
+                </button>
               </div>
-            </div>
 
-            {/* Drawer Footer */}
-            <div className="p-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => setIsDrawerOpen(false)}
-                className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium transition-colors"
+              <LoadingButton
+                type="submit"
+                isLoading={isLoading}
+                loadingText="Signing in..."
               >
-                Close
-              </button>
-            </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+                Sign In
+              </LoadingButton>
+            </form>
 
-      {/* Background Elements */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+            {/* Sign Up Link */}
+            <p className="text-center mt-3 text-xs text-gray-400">
+              Don't have an account?{' '}
+              <button 
+                onClick={() => router.push('/register')}
+                className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+              >
+                Sign up here
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <HelpDrawer isOpen={isDrawerOpen} onOpenChange={setIsDrawerOpen} />
     </div>
   )
 }

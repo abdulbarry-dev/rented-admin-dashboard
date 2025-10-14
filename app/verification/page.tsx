@@ -12,9 +12,9 @@ import {
   RefreshCw,
   ShieldCheck
 } from 'lucide-react'
-import { useVerification } from '../lib/hooks/useVerification'
+import { useVerification } from '../../lib/hooks/useVerification'
 import ImagePreview from '../components/ImagePreview'
-import { validateFileType, validateFileSize } from '../lib/utils/file.utils'
+import { validateFileType, validateFileSize } from '../../lib/utils/file.utils'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']

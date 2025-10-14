@@ -2,9 +2,9 @@
 
 import { useRef } from 'react';
 import { FileText, X, AlertCircle } from 'lucide-react';
-import { FILE_VALIDATION } from '../lib/validations/id-upload.validation';
-import { UploadedFile } from '../lib/hooks/useFileUpload';
-import { isImageFile } from '../lib/utils/file.utils';
+import { FILE_VALIDATION } from './../../lib/validation/id-upload.schema';
+import { UploadedFile } from '../../lib/hooks/useFileUpload';
+import { isImageFile } from '../../lib/utils/file.utils';
 
 interface FileUploadZoneProps {
   label: string;

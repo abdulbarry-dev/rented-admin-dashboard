@@ -1,11 +1,12 @@
-import { signIn, signOut, getSession } from 'next-auth/react'
 import { IAuthProvider, IAuthCredentials, IAuthResult, IUser, LoadingState } from '@/lib/types'
+import { login, logout, getCurrentUser, isAuthenticated } from '@/lib/auth'
 import { toast } from 'sonner'
 
 /**
- * AuthService - Handles user authentication
+ * AuthService - Handles user authentication with Bearer token
  * 
  * Simple singleton service for login, logout, and session management
+ * Uses Laravel backend API with Bearer token authentication
  */
 export class AuthService implements IAuthProvider {
   private static instance: AuthService | null = null
@@ -27,102 +28,112 @@ export class AuthService implements IAuthProvider {
   
   /** Load current session on startup */
   private async loadSession(): Promise<void> {
-    const user = await this.getCurrentUser()
-    this.currentUser = user
-    this.notifyListeners(user)
+    if (isAuthenticated()) {
+      const user = await this.getCurrentUser()
+      this.currentUser = user
+      this.notifyListeners(user)
+    }
   }
   
   /** Sign in with email and password */
   async signIn(credentials: IAuthCredentials): Promise<IAuthResult> {
     this.loadingState = LoadingState.LOADING
     
+    console.log('🔑 AuthService.signIn - RECEIVED credentials:', credentials)
+    console.log('🔑 AuthService.signIn - credentials.login:', credentials.login)
+    console.log('🔑 AuthService.signIn - credentials.password:', credentials.password)
+    console.log('🔑 AuthService.signIn - credentials.rememberMe:', credentials.rememberMe)
+    
     try {
-      const result = await signIn('credentials', {
-        email: credentials.email,
+      const loginPayload = {
+        login: credentials.login,
         password: credentials.password,
-        redirect: false,
-      })
-      
-      if (result?.error) {
-        this.loadingState = LoadingState.ERROR
-        toast.error(this.getErrorMessage(result.error))
-        return { success: false, error: this.getErrorMessage(result.error) }
+        rememberMe: credentials.rememberMe,
       }
       
-      const user = await this.getCurrentUser()
-      this.currentUser = user
-      this.notifyListeners(user)
+      console.log('📤 AuthService.signIn - SENDING to login():', loginPayload)
+      
+      const result = await login(loginPayload)
+      
+      console.log('📦 AuthService.signIn - login result:', result)
+      
+      if (!result.success) {
+        this.loadingState = LoadingState.ERROR
+        const errorMessage = result.message || 'Login failed'
+        toast.error(errorMessage, {
+          description: 'Please check your credentials and try again',
+          duration: 4000,
+        })
+        return { success: false, error: errorMessage }
+      }
+      
+      // Update current user
+      if (result.user) {
+        this.currentUser = {
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email,
+          image: result.user.image,
+          role: result.user.role as any, // Convert from string to UserRole
+        }
+      } else {
+        this.currentUser = null
+      }
+      
+      this.notifyListeners(this.currentUser)
       this.loadingState = LoadingState.SUCCESS
       
-      toast.success('Successfully signed in!')
-      return { success: true, user: user || undefined }
+      toast.success(result.message || 'Successfully signed in!')
+      return { 
+        success: true, 
+        user: this.currentUser || undefined,
+        token: result.token,
+      }
       
     } catch (error) {
       this.loadingState = LoadingState.ERROR
       const message = error instanceof Error ? error.message : 'Sign in failed'
-      toast.error(message)
-      return { success: false, error: message }
-    }
-  }
-  
-  /** Sign in with Google OAuth */
-  async signInWithGoogle(): Promise<IAuthResult> {
-    this.loadingState = LoadingState.LOADING
-    
-    try {
-      const result = await signIn('google', { 
-        callbackUrl: '/dashboard',
-        redirect: false 
+      toast.error('Login Failed', {
+        description: message,
+        duration: 4000,
       })
-      
-      if (result?.error) {
-        this.loadingState = LoadingState.ERROR
-        toast.error('Google sign in failed')
-        return { success: false, error: 'Google sign in failed' }
-      }
-      
-      const user = await this.getCurrentUser()
-      this.currentUser = user
-      this.notifyListeners(user)
-      this.loadingState = LoadingState.SUCCESS
-      
-      toast.success('Successfully signed in with Google!')
-      return { success: true, user: user || undefined }
-      
-    } catch (error) {
-      this.loadingState = LoadingState.ERROR
-      toast.error('Google authentication failed')
-      return { success: false, error: 'Google authentication failed' }
+      return { success: false, error: message }
     }
   }
   
   /** Sign out current user */
   async signOut(): Promise<void> {
     try {
-      await signOut({ callbackUrl: '/login', redirect: false })
+      await logout()
       
       this.currentUser = null
       this.notifyListeners(null)
       this.loadingState = LoadingState.IDLE
       
       toast.success('Successfully signed out')
+      
+      // Redirect to login
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     } catch (error) {
       console.error('Sign out failed:', error)
       toast.error('Failed to sign out')
     }
   }
   
-  /** Get current authenticated user from session */
+  /** Get current authenticated user */
   async getCurrentUser(): Promise<IUser | null> {
     try {
-      const session = await getSession()
-      if (!session?.user) return null
+      const user = getCurrentUser()
+      if (!user) return null
       
       return {
-        id: session.user.id,
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: user.role,
       }
     } catch (error) {
       console.error('Failed to get user:', error)
@@ -130,7 +141,7 @@ export class AuthService implements IAuthProvider {
     }
   }
   
-  /** Refresh auth token (placeholder) */
+  /** Refresh auth token (not implemented for Laravel Bearer tokens) */
   async refreshToken(): Promise<string | null> {
     return null
   }
@@ -159,19 +170,6 @@ export class AuthService implements IAuthProvider {
   /** Notify all subscribers */
   private notifyListeners(user: IUser | null): void {
     this.listeners.forEach(listener => listener(user))
-  }
-  
-  /** Convert error codes to friendly messages */
-  private getErrorMessage(error: string): string {
-    const messages: Record<string, string> = {
-      'CredentialsSignin': 'Invalid email or password',
-      'OAuthSignin': 'OAuth authentication failed',
-      'OAuthCallback': 'OAuth authentication failed',
-      'OAuthCreateAccount': 'OAuth authentication failed',
-      'OAuthAccountNotLinked': 'Account exists with different provider',
-      'SessionRequired': 'Please sign in to continue',
-    }
-    return messages[error] || 'Authentication failed'
   }
 }
 

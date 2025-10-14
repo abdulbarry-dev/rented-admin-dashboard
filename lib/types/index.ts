@@ -87,14 +87,14 @@ export enum AuthProvider {
  * Authentication Credentials
  * 
  * User input for credential-based login.
- * Used for traditional email/password authentication.
+ * Accepts email or phone number for authentication.
  * 
- * @property {string} email - User's email address
+ * @property {string} login - User's email address or phone number
  * @property {string} password - User's password (plain text - will be hashed)
  * @property {boolean} [rememberMe] - Keep user logged in for extended period
  */
 export interface IAuthCredentials {
-  email: string
+  login: string
   password: string
   rememberMe?: boolean
 }
@@ -139,12 +139,6 @@ export interface IAuthProvider {
    * @returns Promise resolving to authentication result
    */
   signIn(credentials: IAuthCredentials): Promise<IAuthResult>
-  
-  /**
-   * Sign in with Google OAuth
-   * @returns Promise resolving to authentication result
-   */
-  signInWithGoogle(): Promise<IAuthResult>
   
   /**
    * Sign out current user and clear session
