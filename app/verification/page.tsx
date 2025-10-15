@@ -15,11 +15,15 @@ import {
 import { useVerification } from '../../lib/hooks/useVerification'
 import ImagePreview from '../components/ImagePreview'
 import { validateFileType, validateFileSize } from '../../lib/utils/file.utils'
+import { useVerificationGuard } from '@/lib/guards/auth.guard'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 
 export default function VerificationPage() {
+  // Auth guard - only allows pending users
+  const { user, loading: authLoading, authorized } = useVerificationGuard()
+  
   const { requirements, loading, submitting, fetchRequirements, handleSubmit, handleResubmit } = useVerification()
   
   const [frontFile, setFrontFile] = useState<File | null>(null)
@@ -123,6 +127,18 @@ export default function VerificationPage() {
 
   const canUpload = requirements?.status === 'not_submitted' || 
                     (requirements?.status === 'rejected' && requirements?.can_resubmit)
+
+  // Show auth loading state
+  if (authLoading || !authorized) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Verifying access...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

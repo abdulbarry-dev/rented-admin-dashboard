@@ -63,6 +63,12 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     if (res.data.token) {
       console.log('💾 Storing token:', res.data.token)
       localStorage.setItem('auth_token', res.data.token)
+      
+      // Also store in cookies for server-side middleware access
+      if (typeof document !== 'undefined') {
+        const maxAge = 30 * 24 * 60 * 60 // 30 days
+        document.cookie = `auth_token=${res.data.token}; path=/; max-age=${maxAge}; SameSite=Lax`
+      }
     } else {
       console.warn('⚠️ No token in response!')
     }
@@ -107,6 +113,11 @@ export async function logout(): Promise<void> {
     // Always clear local storage
     localStorage.removeItem('auth_token')
     localStorage.removeItem('user_data')
+    
+    // Clear cookie
+    if (typeof document !== 'undefined') {
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    }
   }
 }
 
