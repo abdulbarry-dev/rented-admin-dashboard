@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
+    "@vueuse/core": "^14.0.0",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
     "pinia": "^3.0.3",
