@@ -56,7 +56,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/404',
     name: 'not-found',
-    component: () => import('@/pages/errors/NotFoundError.vue'), // Ensure this file exists at the specified path
+    component: () => import('@/pages/errors/NotFoundError.vue'),
     meta: {
       layout: 'auth',
       title: 'Page Not Found'
