@@ -34,7 +34,12 @@
       <!-- User Menu -->
       <div class="user-menu" @click="toggleUserDropdown">
         <div class="user-avatar">
-          <img v-if="user?.avatar" :src="user.avatar" :alt="user.name" />
+          <img
+            v-if="user?.avatar && !avatarError"
+            :src="user.avatar"
+            :alt="user.name"
+            @error="handleAvatarError"
+          />
           <UserCircleIcon v-else class="avatar-icon" />
         </div>
         <div class="user-info">
@@ -49,7 +54,12 @@
             <div class="dropdown-header">
               <div class="dropdown-user-info">
                 <div class="dropdown-avatar">
-                  <img v-if="user?.avatar" :src="user.avatar" :alt="user.name" />
+                  <img
+                    v-if="user?.avatar && !dropdownAvatarError"
+                    :src="user.avatar"
+                    :alt="user.name"
+                    @error="handleDropdownAvatarError"
+                  />
                   <UserCircleIcon v-else class="dropdown-avatar-icon" />
                 </div>
                 <div class="dropdown-details">
@@ -132,9 +142,19 @@ const { toggleTheme: toggleThemeStore } = themeStore
 
 const showUserDropdown = ref(false)
 const searchQuery = ref('')
+const avatarError = ref(false)
+const dropdownAvatarError = ref(false)
 
 const toggleTheme = () => {
   toggleThemeStore()
+}
+
+const handleAvatarError = () => {
+  avatarError.value = true
+}
+
+const handleDropdownAvatarError = () => {
+  dropdownAvatarError.value = true
 }
 
 const handleOpenNotifications = () => {
