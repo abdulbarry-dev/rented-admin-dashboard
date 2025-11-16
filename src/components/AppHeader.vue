@@ -344,11 +344,12 @@ if (typeof window !== 'undefined') {
   height: 36px;
   border-radius: 50%;
   overflow: hidden;
-  background: #1e293b;
+  background: var(--sidebar-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .user-avatar img {
@@ -360,8 +361,9 @@ if (typeof window !== 'undefined') {
 .avatar-icon {
   width: 100%;
   height: 100%;
-  color: white;
+  color: var(--text-muted);
   stroke-width: 1.5;
+  transition: color 0.3s ease;
 }
 
 .user-info {
@@ -426,11 +428,12 @@ if (typeof window !== 'undefined') {
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background: #1e293b;
+  background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .dropdown-avatar img {
