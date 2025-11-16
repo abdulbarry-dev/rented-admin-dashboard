@@ -109,7 +109,12 @@
             <tr v-for="record in paginatedHistory" :key="record.id">
               <td>
                 <div class="user-cell">
-                  <img :src="record.user.photo || '/default-avatar.png'" alt="User" class="user-photo" />
+                  <div v-if="record.user.photo" class="user-photo">
+                    <img :src="record.user.photo" alt="User" />
+                  </div>
+                  <div v-else class="user-photo avatar-fallback">
+                    <span>{{ getInitials(record.user.name) }}</span>
+                  </div>
                   <div>
                     <div class="user-name">{{ record.user.name }}</div>
                     <div class="user-email">{{ record.user.email }}</div>
@@ -271,6 +276,15 @@ const clearFilters = () => {
     verifier: '',
     dateRange: 'all'
   }
+}
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2)
 }
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString()
@@ -531,8 +545,27 @@ const exportHistory = () => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-photo img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--bg-secondary);
+}
+
+.user-cell .avatar-fallback {
+  background: linear-gradient(135deg, var(--primary-color), #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-cell .avatar-fallback span {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .user-name {

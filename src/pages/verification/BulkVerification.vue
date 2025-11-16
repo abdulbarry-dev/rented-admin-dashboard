@@ -65,7 +65,12 @@
       <div class="items-grid">
         <div v-for="item in batchItems" :key="item.id" class="batch-item" :class="item.status">
           <div class="item-header">
-            <img :src="item.photo || '/default-avatar.png'" alt="User" class="item-photo" />
+            <div v-if="item.photo" class="item-photo">
+              <img :src="item.photo" alt="User" />
+            </div>
+            <div v-else class="item-photo avatar-fallback">
+              <span>{{ getInitials(item.name) }}</span>
+            </div>
             <div class="item-info">
               <h4>{{ item.name }}</h4>
               <p>{{ item.email }}</p>
@@ -205,6 +210,15 @@ const rejectAll = () => {
       item.rejectionReason = 'Bulk rejection'
     }
   })
+}
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2)
 }
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString()
@@ -418,8 +432,27 @@ const getRiskClass = (score: number) => score <= 30 ? 'low' : score <= 60 ? 'med
   width: 48px;
   height: 48px;
   border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.item-photo img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--bg-color);
+}
+
+.item-header .avatar-fallback {
+  background: linear-gradient(135deg, var(--primary-color), #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-header .avatar-fallback span {
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .item-info {

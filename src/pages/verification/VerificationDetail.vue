@@ -1,3 +1,4 @@
+
 <template>
   <div class="verification-detail">
     <div class="detail-header">
@@ -22,7 +23,12 @@
       <div class="info-panel">
         <h3 class="panel-title">User Information</h3>
         <div class="user-profile">
-          <img :src="verification.user.photo || '/default-avatar.png'" alt="User" class="profile-photo" />
+          <div v-if="verification.user.photo" class="profile-photo">
+            <img :src="verification.user.photo" alt="User" />
+          </div>
+          <div v-else class="profile-photo avatar-fallback">
+            <span>{{ getInitials(verification.user.name) }}</span>
+          </div>
           <div class="profile-info">
             <h4>{{ verification.user.name }}</h4>
             <p>{{ verification.user.email }}</p>
@@ -201,6 +207,15 @@ const verification = ref({
   previousAttempts: []
 })
 
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2)
+}
+
 const formatDate = (date: string) => new Date(date).toLocaleDateString()
 const formatChecklistLabel = (key: string) => key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
 const getRiskClass = (score: number) => score <= 30 ? 'low' : score <= 60 ? 'medium' : 'high'
@@ -330,8 +345,27 @@ onMounted(() => {
   width: 80px;
   height: 80px;
   border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.profile-photo img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--bg-secondary);
+}
+
+.avatar-fallback {
+  background: linear-gradient(135deg, var(--primary-color), #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-fallback span {
+  color: white;
+  font-size: 1.75rem;
+  font-weight: 600;
 }
 
 .profile-info h4 {

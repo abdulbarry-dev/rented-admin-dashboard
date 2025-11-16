@@ -176,12 +176,12 @@
           </div>
 
           <div class="table-cell user-cell">
-            <img
-              :src="submission.userPhoto || '/default-avatar.png'"
-              :alt="submission.userName"
-              class="user-avatar"
-              @error="(e) => e.target.src = '/default-avatar.png'"
-            />
+            <div v-if="submission.userPhoto" class="user-avatar">
+              <img :src="submission.userPhoto" :alt="submission.userName" />
+            </div>
+            <div v-else class="user-avatar avatar-fallback">
+              <span>{{ getInitials(submission.userName) }}</span>
+            </div>
             <div class="user-info">
               <div class="user-name">{{ submission.userName }}</div>
               <div class="user-email">{{ submission.userEmail }}</div>
@@ -463,6 +463,15 @@ const formatDate = (dateString: string) => {
   if (diffDays < 7) return `${diffDays} days ago`
 
   return date.toLocaleDateString()
+}
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2)
 }
 
 const formatDocumentType = (type: string) => {
@@ -931,8 +940,27 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--bg-secondary);
+}
+
+.user-cell .avatar-fallback {
+  background: linear-gradient(135deg, var(--primary-color), #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-cell .avatar-fallback span {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .user-info {
