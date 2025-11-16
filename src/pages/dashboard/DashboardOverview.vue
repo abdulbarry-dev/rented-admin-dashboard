@@ -20,32 +20,18 @@
 
     <!-- KPI Cards Grid -->
     <section class="kpi-section">
-      <div
+      <KPICard
         v-for="(kpi, index) in kpiMetrics"
         :key="kpi.title"
-        class="kpi-card"
-        :style="{ animationDelay: `${index * 0.1}s` }"
-      >
-        <div class="kpi-header">
-          <div class="kpi-icon" :class="`icon-${kpi.color}`">
-            <component :is="kpi.icon" class="icon" />
-          </div>
-          <div class="kpi-trend" :class="{ positive: kpi.growth > 0, negative: kpi.growth < 0, neutral: kpi.growth === 0 }">
-            <ArrowUpIcon v-if="kpi.growth > 0" class="trend-icon" />
-            <ArrowDownIcon v-else-if="kpi.growth < 0" class="trend-icon" />
-            <MinusIcon v-else class="trend-icon" />
-            <span>{{ Math.abs(kpi.growth) }}%</span>
-          </div>
-        </div>
-        <div class="kpi-body">
-          <div class="kpi-value">{{ kpi.value }}</div>
-          <div class="kpi-title">{{ kpi.title }}</div>
-          <div class="kpi-subtitle">{{ kpi.subtitle }}</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Charts Section -->
+        :title="kpi.title"
+        :value="kpi.value"
+        :growth="kpi.growth"
+        :subtitle="kpi.subtitle"
+        :icon="kpi.icon"
+        :color="kpi.color"
+        :animation-delay="index * 0.1"
+      />
+    </section>    <!-- Charts Section -->
     <div class="charts-grid">
       <!-- Revenue Chart -->
       <section class="chart-card">
@@ -81,18 +67,16 @@
           <h2 class="card-title">Quick Stats</h2>
         </div>
         <div class="stats-list">
-          <div v-for="stat in quickStats" :key="stat.label" class="stat-item">
-            <div class="stat-icon" :class="`bg-${stat.color}`">
-              <component :is="stat.icon" class="icon" />
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ stat.value }}</div>
-              <div class="stat-label">{{ stat.label }}</div>
-            </div>
-            <div class="stat-change" :class="stat.changeType">
-              {{ stat.change }}
-            </div>
-          </div>
+          <QuickStatCard
+            v-for="stat in quickStats"
+            :key="stat.label"
+            :label="stat.label"
+            :value="stat.value"
+            :change="stat.change"
+            :change-type="stat.changeType"
+            :icon="stat.icon"
+            :color="stat.color"
+          />
         </div>
       </section>
     </div>
@@ -106,18 +90,15 @@
           <button class="view-all-btn">View All</button>
         </div>
         <div class="activity-list">
-          <div v-for="activity in recentActivity" :key="activity.id" class="activity-item">
-            <div class="activity-icon" :class="`bg-${activity.color}`">
-              <component :is="activity.icon" class="icon" />
-            </div>
-            <div class="activity-content">
-              <div class="activity-text">
-                <span class="activity-action">{{ activity.action }}</span>
-                <span class="activity-admin">by {{ activity.admin }}</span>
-              </div>
-              <div class="activity-time">{{ activity.timestamp }}</div>
-            </div>
-          </div>
+          <ActivityItem
+            v-for="activity in recentActivity"
+            :key="activity.id"
+            :action="activity.action"
+            :admin="activity.admin"
+            :timestamp="activity.timestamp"
+            :icon="activity.icon"
+            :color="activity.color"
+          />
         </div>
       </section>
 
@@ -128,20 +109,14 @@
           <span class="alert-count">{{ alerts.length }}</span>
         </div>
         <div class="alerts-list">
-          <div v-for="alert in alerts" :key="alert.id" class="alert-item" :class="alert.severity">
-            <div class="alert-icon">
-              <ExclamationTriangleIcon v-if="alert.severity === 'warning'" class="icon" />
-              <ExclamationCircleIcon v-else-if="alert.severity === 'critical'" class="icon" />
-              <InformationCircleIcon v-else class="icon" />
-            </div>
-            <div class="alert-content">
-              <p class="alert-message">{{ alert.message }}</p>
-              <span class="alert-time">{{ alert.timestamp }}</span>
-            </div>
-            <button class="alert-dismiss">
-              <XMarkIcon class="icon" />
-            </button>
-          </div>
+          <AlertItem
+            v-for="alert in alerts"
+            :key="alert.id"
+            :message="alert.message"
+            :severity="alert.severity"
+            :timestamp="alert.timestamp"
+            @dismiss="dismissAlert(alert.id)"
+          />
         </div>
       </section>
     </div>
@@ -150,11 +125,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import {
-  ArrowUpIcon,
-  ArrowDownIcon,
-  MinusIcon
-} from '@heroicons/vue/24/solid'
 import {
   UsersIcon,
   ShieldCheckIcon,
@@ -166,13 +136,13 @@ import {
   ArrowDownTrayIcon,
   UserPlusIcon,
   CheckCircleIcon,
-  DocumentTextIcon,
-  ExclamationTriangleIcon,
-  ExclamationCircleIcon,
-  InformationCircleIcon,
-  XMarkIcon
+  DocumentTextIcon
 } from '@heroicons/vue/24/outline'
 import LineChart from '@/components/charts/LineChart.vue'
+import KPICard from '@/components/dashboard/KPICard.vue'
+import QuickStatCard from '@/components/dashboard/QuickStatCard.vue'
+import ActivityItem from '@/components/dashboard/ActivityItem.vue'
+import AlertItem from '@/components/dashboard/AlertItem.vue'
 import type { Component } from 'vue'
 
 interface KPI {
@@ -380,9 +350,14 @@ const alerts = ref<Alert[]>([
     timestamp: '3 hours ago'
   }
 ])
-</script>
 
-<style scoped>
+const dismissAlert = (id: number) => {
+  const index = alerts.value.findIndex(alert => alert.id === id)
+  if (index !== -1) {
+    alerts.value.splice(index, 1)
+  }
+}
+</script><style scoped>
 /* Dashboard Container */
 .dashboard-overview {
   padding: 0;
@@ -472,143 +447,6 @@ const alerts = ref<Alert[]>([
   gap: 1.25rem;
 }
 
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.kpi-card {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  padding: 1.5rem;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: slideInUp 0.5s ease-out backwards;
-}
-
-.kpi-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary-color);
-}
-
-.kpi-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-
-.kpi-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-.kpi-icon .icon {
-  width: 24px;
-  height: 24px;
-  stroke-width: 2;
-}
-
-.kpi-icon.icon-blue {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.kpi-icon.icon-purple {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.kpi-icon.icon-green {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-.kpi-icon.icon-orange {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.kpi-icon.icon-teal {
-  background: rgba(20, 184, 166, 0.1);
-  color: #14b8a6;
-}
-
-.kpi-icon.icon-indigo {
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
-}
-
-.kpi-trend {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.kpi-trend .trend-icon {
-  width: 12px;
-  height: 12px;
-}
-
-.kpi-trend.positive {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-.kpi-trend.negative {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.kpi-trend.neutral {
-  background: var(--bg-color);
-  color: var(--text-muted);
-}
-
-.kpi-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.kpi-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-  transition: color 0.3s ease;
-}
-
-.kpi-title {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: color 0.3s ease;
-}
-
-.kpi-subtitle {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  transition: color 0.3s ease;
-}
-
 /* Charts Grid */
 .charts-grid {
   display: grid;
@@ -692,85 +530,6 @@ const alerts = ref<Alert[]>([
   gap: 0.75rem;
 }
 
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  background: var(--bg-color);
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.stat-item:hover {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
-  transform: translateX(4px);
-}
-
-.stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-icon .icon {
-  width: 20px;
-  height: 20px;
-  stroke-width: 2;
-  color: white;
-}
-
-.stat-icon.bg-blue { background: #3b82f6; }
-.stat-icon.bg-green { background: #22c55e; }
-.stat-icon.bg-purple { background: #8b5cf6; }
-.stat-icon.bg-orange { background: #f59e0b; }
-
-.stat-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.stat-value {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  transition: color 0.3s ease;
-}
-
-.stat-label {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  transition: color 0.3s ease;
-}
-
-.stat-change {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  padding: 0.25rem 0.625rem;
-  border-radius: 12px;
-}
-
-.stat-change.positive {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-.stat-change.negative {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.stat-change.neutral {
-  background: var(--bg-secondary);
-  color: var(--text-muted);
-}
-
 /* Activity Grid */
 .activity-grid {
   display: grid;
@@ -801,76 +560,6 @@ const alerts = ref<Alert[]>([
   gap: 0.75rem;
 }
 
-.activity-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  background: var(--bg-color);
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.activity-item:hover {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
-}
-
-.activity-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.activity-icon .icon {
-  width: 18px;
-  height: 18px;
-  stroke-width: 2;
-  color: white;
-}
-
-.activity-icon.bg-blue { background: #3b82f6; }
-.activity-icon.bg-green { background: #22c55e; }
-.activity-icon.bg-purple { background: #8b5cf6; }
-.activity-icon.bg-teal { background: #14b8a6; }
-.activity-icon.bg-indigo { background: #6366f1; }
-
-.activity-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.activity-text {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  margin-bottom: 0.25rem;
-}
-
-.activity-action {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: color 0.3s ease;
-}
-
-.activity-admin {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  transition: color 0.3s ease;
-}
-
-.activity-time {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  transition: color 0.3s ease;
-}
-
 /* Alerts */
 .alert-count {
   display: inline-flex;
@@ -893,131 +582,11 @@ const alerts = ref<Alert[]>([
   gap: 0.75rem;
 }
 
-.alert-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid;
-  transition: all 0.2s ease;
-}
-
-.alert-item.critical {
-  background: rgba(239, 68, 68, 0.05);
-  border-color: rgba(239, 68, 68, 0.2);
-}
-
-.alert-item.warning {
-  background: rgba(245, 158, 11, 0.05);
-  border-color: rgba(245, 158, 11, 0.2);
-}
-
-.alert-item.info {
-  background: rgba(59, 130, 246, 0.05);
-  border-color: rgba(59, 130, 246, 0.2);
-}
-
-.alert-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.alert-icon .icon {
-  width: 20px;
-  height: 20px;
-  stroke-width: 2;
-}
-
-.alert-item.critical .alert-icon {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.alert-item.warning .alert-icon {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.alert-item.info .alert-icon {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.alert-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.alert-message {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 0 0 0.375rem 0;
-  line-height: 1.5;
-  transition: color 0.3s ease;
-}
-
-.alert-time {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  transition: color 0.3s ease;
-}
-
-.alert-dismiss {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.alert-dismiss:hover {
-  background: var(--bg-color);
-  color: var(--text-primary);
-}
-
-.alert-dismiss .icon {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2;
-}
-
 /* Tablet Responsive */
 @media (max-width: 1024px) {
   .kpi-section {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1rem;
-  }
-
-  .kpi-card {
-    padding: 1.25rem;
-  }
-
-  .kpi-icon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .kpi-icon .icon {
-    width: 20px;
-    height: 20px;
-  }
-
-  .kpi-value {
-    font-size: 1.5rem;
   }
 
   .charts-grid {
@@ -1057,32 +626,6 @@ const alerts = ref<Alert[]>([
     gap: 0.75rem;
   }
 
-  .kpi-card {
-    padding: 1rem;
-  }
-
-  .kpi-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .kpi-icon .icon {
-    width: 18px;
-    height: 18px;
-  }
-
-  .kpi-value {
-    font-size: 1.25rem;
-  }
-
-  .kpi-title {
-    font-size: 0.75rem;
-  }
-
-  .kpi-subtitle {
-    font-size: 0.6875rem;
-  }
-
   .card-header {
     padding: 1.25rem 1.25rem 0.875rem 1.25rem;
   }
@@ -1108,26 +651,6 @@ const alerts = ref<Alert[]>([
   .activity-list,
   .alerts-list {
     padding: 0.75rem;
-  }
-
-  .stat-item,
-  .activity-item,
-  .alert-item {
-    padding: 0.875rem;
-  }
-
-  .stat-icon,
-  .activity-icon,
-  .alert-icon {
-    width: 32px;
-    height: 32px;
-  }
-
-  .stat-icon .icon,
-  .activity-icon .icon,
-  .alert-icon .icon {
-    width: 16px;
-    height: 16px;
   }
 }
 

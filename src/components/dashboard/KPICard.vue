@@ -1,96 +1,58 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/outline'
-import { useThemeStore } from '@/stores/theme'
+import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from '@heroicons/vue/24/solid'
+import type { Component } from 'vue'
 
 interface Props {
   title: string
   value: string | number
-  change?: number
-  changeLabel?: string
-  icon: any
-  iconColor?: string
-  darkMode?: boolean
-  loading?: boolean
+  growth: number
+  subtitle: string
+  icon: Component
+  color: string
+  animationDelay?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  iconColor: 'blue',
-  darkMode: false,
-  loading: false
+  animationDelay: 0
 })
 
-const themeStore = useThemeStore()
-
-// Use themeStore.isDark if darkMode prop is not explicitly provided
-const isDark = computed(() => props.darkMode ?? themeStore.isDark)
-
-const colorClasses = computed(() => {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-500/90 text-white dark:bg-blue-900/30 dark:text-blue-400',
-    purple: 'bg-purple-500/90 text-white dark:bg-purple-900/30 dark:text-purple-400',
-    green: 'bg-green-500/90 text-white dark:bg-green-900/30 dark:text-green-400',
-    amber: 'bg-amber-500/90 text-white dark:bg-amber-900/30 dark:text-amber-400',
-    red: 'bg-red-500/90 text-white dark:bg-red-900/30 dark:text-red-400',
-    cyan: 'bg-cyan-500/90 text-white dark:bg-cyan-900/30 dark:text-cyan-400',
-  }
-  return colors[props.iconColor] || colors.blue
+const trendClass = computed(() => {
+  if (props.growth > 0) return 'positive'
+  if (props.growth < 0) return 'negative'
+  return 'neutral'
 })
-
-const isPositive = computed(() => props.change && props.change > 0)
-const isNegative = computed(() => props.change && props.change < 0)
 </script>
 
 <template>
   <div
-    :class="isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'"
-    class="rounded-xl border shadow-sm p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-fade-in"
+    class="kpi-card"
+    :style="{ animationDelay: `${animationDelay}s` }"
   >
-    <div class="flex items-start justify-between">
-      <div class="flex-1">
-        <p :class="isDark ? 'text-slate-400' : 'text-slate-600'" class="text-sm font-medium">
-          {{ title }}
-        </p>
-        <div class="mt-2">
-          <div v-if="loading" class="h-8 w-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-          <h3
-            v-else
-            :class="isDark ? 'text-white' : 'text-slate-900'"
-            class="text-3xl font-bold"
-          >
-            {{ value }}
-          </h3>
-        </div>
-        <div v-if="change !== undefined" class="mt-3 flex items-center gap-2">
-          <span
-            :class="[
-              isPositive ? 'text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-400' : '',
-              isNegative ? 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-400' : '',
-              !isPositive && !isNegative ? 'text-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-400' : ''
-            ]"
-            class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold"
-          >
-            <ArrowUpIcon v-if="isPositive" class="w-3 h-3" />
-            <ArrowDownIcon v-if="isNegative" class="w-3 h-3" />
-            {{ Math.abs(change) }}%
-          </span>
-          <span :class="isDark ? 'text-slate-500' : 'text-slate-600'" class="text-xs">
-            {{ changeLabel || 'vs last period' }}
-          </span>
-        </div>
+    <div class="kpi-header">
+      <div class="kpi-icon" :class="`icon-${color}`">
+        <component :is="icon" class="icon" />
       </div>
-      <div :class="colorClasses" class="rounded-lg p-3">
-        <component :is="icon" class="w-6 h-6" />
+      <div class="kpi-trend" :class="trendClass">
+        <ArrowUpIcon v-if="growth > 0" class="trend-icon" />
+        <ArrowDownIcon v-else-if="growth < 0" class="trend-icon" />
+        <MinusIcon v-else class="trend-icon" />
+        <span>{{ Math.abs(growth) }}%</span>
       </div>
+    </div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ value }}</div>
+      <div class="kpi-title">{{ title }}</div>
+      <div class="kpi-subtitle">{{ subtitle }}</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-@keyframes fadeIn {
+@keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -98,12 +60,179 @@ const isNegative = computed(() => props.change && props.change < 0)
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+.kpi-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideInUp 0.5s ease-out backwards;
 }
 
-.animate-fade-in:nth-child(1) { animation-delay: 0.1s; opacity: 0; }
-.animate-fade-in:nth-child(2) { animation-delay: 0.2s; opacity: 0; }
-.animate-fade-in:nth-child(3) { animation-delay: 0.3s; opacity: 0; }
-.animate-fade-in:nth-child(4) { animation-delay: 0.4s; opacity: 0; }
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
+}
+
+.kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.kpi-icon .icon {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+}
+
+.kpi-icon.icon-blue {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.kpi-icon.icon-purple {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.kpi-icon.icon-green {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.kpi-icon.icon-orange {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.kpi-icon.icon-teal {
+  background: rgba(20, 184, 166, 0.1);
+  color: #14b8a6;
+}
+
+.kpi-icon.icon-indigo {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.kpi-trend {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.kpi-trend .trend-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.kpi-trend.positive {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.kpi-trend.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.kpi-trend.neutral {
+  background: var(--bg-color);
+  color: var(--text-muted);
+}
+
+.kpi-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  transition: color 0.3s ease;
+}
+
+.kpi-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.kpi-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+/* Tablet Responsive */
+@media (max-width: 1024px) {
+  .kpi-card {
+    padding: 1.25rem;
+  }
+
+  .kpi-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .kpi-icon .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .kpi-value {
+    font-size: 1.5rem;
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .kpi-card {
+    padding: 1rem;
+  }
+
+  .kpi-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .kpi-icon .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+
+  .kpi-title {
+    font-size: 0.75rem;
+  }
+
+  .kpi-subtitle {
+    font-size: 0.6875rem;
+  }
+}
 </style>
