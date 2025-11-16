@@ -135,7 +135,13 @@ import {
   DocumentTextIcon,
   QueueListIcon,
   ExclamationTriangleIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  PresentationChartLineIcon,
+  ArrowTrendingUpIcon,
+  UserGroupIcon,
+  BanknotesIcon,
+  TagIcon,
+  CpuChipIcon
 } from '@heroicons/vue/24/outline'
 
 interface MenuItem {
@@ -174,7 +180,19 @@ const mainMenuItems = ref<MenuItem[]>([
       { name: 'Fraud Alerts', route: '/verification/fraud', icon: ExclamationTriangleIcon, badge: 8 }
     ]
   },
-  { name: 'Analytics', route: '/analytics', icon: ChartBarIcon }
+  {
+    name: 'Analytics',
+    route: '/analytics',
+    icon: ChartBarIcon,
+    children: [
+      { name: 'Overview', route: '/analytics', icon: PresentationChartLineIcon },
+      { name: 'Sales Trends', route: '/analytics/sales-trends', icon: ArrowTrendingUpIcon },
+      { name: 'User Growth', route: '/analytics/user-growth', icon: UserGroupIcon },
+      { name: 'Revenue Reports', route: '/analytics/revenue-reports', icon: BanknotesIcon },
+      { name: 'Popular Categories', route: '/analytics/popular-categories', icon: TagIcon },
+      { name: 'Performance Metrics', route: '/analytics/performance-metrics', icon: CpuChipIcon }
+    ]
+  }
 ])
 
 // Management menu items
@@ -225,6 +243,10 @@ onMounted(() => {
   // Auto-expand verification menu if on verification page
   if (route.path.startsWith('/verification')) {
     expandedItems.value.push('Verification')
+  }
+  // Auto-expand analytics menu if on analytics page
+  if (route.path.startsWith('/analytics')) {
+    expandedItems.value.push('Analytics')
   }
 })
 

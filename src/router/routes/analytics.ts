@@ -43,7 +43,7 @@ const analyticsRoutes: RouteRecordRaw[] = [
     // - Export analytics data to PDF/Excel
   },
   {
-    path: '/analytics/sales',
+    path: '/analytics/sales-trends',
     name: 'analytics-sales',
     component: () => import('@/pages/analytics/SalesTrends.vue'),
     meta: {
@@ -66,7 +66,7 @@ const analyticsRoutes: RouteRecordRaw[] = [
     // - Identify sales patterns and seasonality
   },
   {
-    path: '/analytics/users',
+    path: '/analytics/user-growth',
     name: 'analytics-users',
     component: () => import('@/pages/analytics/UserGrowth.vue'),
     meta: {
@@ -89,7 +89,7 @@ const analyticsRoutes: RouteRecordRaw[] = [
     // - Monitor user acquisition channels
   },
   {
-    path: '/analytics/revenue',
+    path: '/analytics/revenue-reports',
     name: 'analytics-revenue',
     component: () => import('@/pages/analytics/RevenueReports.vue'),
     meta: {
@@ -112,7 +112,7 @@ const analyticsRoutes: RouteRecordRaw[] = [
     // - Generate financial forecasts
   },
   {
-    path: '/analytics/categories',
+    path: '/analytics/popular-categories',
     name: 'analytics-categories',
     component: () => import('@/pages/analytics/PopularCategories.vue'),
     meta: {
@@ -135,7 +135,7 @@ const analyticsRoutes: RouteRecordRaw[] = [
     // - Compare categories side-by-side
   },
   {
-    path: '/analytics/performance',
+    path: '/analytics/performance-metrics',
     name: 'analytics-performance',
     component: () => import('@/pages/analytics/PerformanceMetrics.vue'),
     meta: {
