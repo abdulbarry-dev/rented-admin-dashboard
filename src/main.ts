@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import './assets/css/main.css'
+import 'vue-awesome-paginate/dist/style.css'
 
 const app = createApp(App)
 

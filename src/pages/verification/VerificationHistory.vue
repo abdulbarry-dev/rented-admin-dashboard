@@ -161,25 +161,13 @@
 
       <!-- Pagination -->
       <div class="pagination">
-        <button
-          class="pagination-btn"
-          :disabled="pagination.currentPage === 1"
-          @click="pagination.currentPage--"
-        >
-          <ChevronLeftIcon class="icon" />
-          Previous
-        </button>
-        <div class="pagination-info">
-          Page {{ pagination.currentPage }} of {{ totalPages }}
-        </div>
-        <button
-          class="pagination-btn"
-          :disabled="pagination.currentPage === totalPages"
-          @click="pagination.currentPage++"
-        >
-          Next
-          <ChevronRightIcon class="icon" />
-        </button>
+        <vue-awesome-paginate
+          :total-items="filteredHistory.length"
+          :items-per-page="pagination.itemsPerPage"
+          :max-pages-shown="5"
+          v-model="pagination.currentPage"
+          :on-click="onPageChange"
+        />
       </div>
     </div>
   </div>
@@ -188,6 +176,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { VueAwesomePaginate } from 'vue-awesome-paginate'
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -195,9 +184,7 @@ import {
   ShieldExclamationIcon,
   MagnifyingGlassIcon,
   ArrowDownTrayIcon,
-  EyeIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
+  EyeIcon
 } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -265,9 +252,9 @@ const paginatedHistory = computed(() => {
   return filteredHistory.value.slice(start, end)
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredHistory.value.length / pagination.value.itemsPerPage)
-})
+const onPageChange = (page: number) => {
+  pagination.value.currentPage = page
+}
 
 const clearFilters = () => {
   filters.value = {
@@ -646,42 +633,55 @@ const exportHistory = () => {
 
 .pagination {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem;
   border-top: 1px solid var(--border-color);
 }
 
-.pagination-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
+.pagination :deep(.pagination-container) {
+  column-gap: 0.5rem;
+}
+
+.pagination :deep(.paginate-buttons) {
+  height: 38px;
+  width: 38px;
   border-radius: var(--radius-md);
+  cursor: pointer;
+  background-color: var(--bg-color);
   border: 1px solid var(--border-color);
-  background: var(--bg-color);
   color: var(--text-primary);
   font-size: 0.875rem;
-  cursor: pointer;
+  font-weight: 500;
 }
 
-.pagination-btn .icon {
-  width: 16px;
-  height: 16px;
+.pagination :deep(.paginate-buttons:hover) {
+  background-color: var(--bg-secondary);
 }
 
-.pagination-btn:hover:not(:disabled) {
-  background: var(--bg-secondary);
+.pagination :deep(.active-page) {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: white !important;
 }
 
-.pagination-btn:disabled {
+.pagination :deep(.back-button),
+.pagination :deep(.next-button) {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.pagination :deep(.back-button:hover),
+.pagination :deep(.next-button:hover) {
+  background-color: var(--bg-secondary);
+}
+
+.pagination :deep(.back-button[disabled]),
+.pagination :deep(.next-button[disabled]) {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.pagination-info {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
 }
 
 @media (max-width: 768px) {

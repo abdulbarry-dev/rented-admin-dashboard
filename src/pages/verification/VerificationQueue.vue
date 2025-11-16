@@ -232,35 +232,13 @@
 
     <!-- Pagination -->
     <div v-if="totalPages > 1" class="pagination">
-      <button
-        class="page-btn"
-        :disabled="currentPage === 1"
-        @click="changePage(currentPage - 1)"
-      >
-        <ChevronLeftIcon class="icon" />
-        Previous
-      </button>
-
-      <div class="page-numbers">
-        <button
-          v-for="page in displayedPages"
-          :key="page"
-          class="page-number"
-          :class="{ active: page === currentPage }"
-          @click="changePage(page)"
-        >
-          {{ page }}
-        </button>
-      </div>
-
-      <button
-        class="page-btn"
-        :disabled="currentPage === totalPages"
-        @click="changePage(currentPage + 1)"
-      >
-        Next
-        <ChevronRightIcon class="icon" />
-      </button>
+      <vue-awesome-paginate
+        :total-items="submissions.length"
+        :items-per-page="20"
+        :max-pages-shown="5"
+        v-model="currentPage"
+        :on-click="onChangePage"
+      />
     </div>
 
     <!-- Quick Approve Modal -->
@@ -332,6 +310,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { VueAwesomePaginate } from 'vue-awesome-paginate'
 import {
   ArrowPathIcon,
   QueueListIcon,
@@ -344,9 +323,7 @@ import {
   FlagIcon,
   DocumentMagnifyingGlassIcon,
   EyeIcon,
-  CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
+  CheckIcon
 } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -390,24 +367,6 @@ const stats = ref({
   totalPending: 0,
   highPriority: 0,
   avgWaitTime: 0
-})
-
-// Computed
-const displayedPages = computed(() => {
-  const pages = []
-  const maxPages = 5
-  let start = Math.max(1, currentPage.value - 2)
-  let end = Math.min(totalPages.value, start + maxPages - 1)
-
-  if (end - start < maxPages - 1) {
-    start = Math.max(1, end - maxPages + 1)
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-
-  return pages
 })
 
 // Methods
@@ -579,7 +538,7 @@ const refreshQueue = () => {
   loadQueue()
 }
 
-const changePage = (page: number) => {
+const onChangePage = (page: number) => {
   currentPage.value = page
   loadQueue()
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1112,61 +1071,58 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 0;
-}
-
-.page-btn {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  padding: 2rem 1.5rem;
   background: var(--card-bg);
-  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+}
+
+.pagination :deep(.pagination-container) {
+  column-gap: 0.5rem;
+}
+
+.pagination :deep(.paginate-buttons) {
+  height: 40px;
+  width: 40px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
-.page-btn .icon {
-  width: 16px;
-  height: 16px;
+.pagination :deep(.paginate-buttons:hover) {
+  background-color: var(--bg-secondary);
 }
 
-.page-btn:disabled {
+.pagination :deep(.active-page) {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: white !important;
+}
+
+.pagination :deep(.back-button),
+.pagination :deep(.next-button) {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0 1rem;
+  border-radius: var(--radius-md);
+}
+
+.pagination :deep(.back-button:hover),
+.pagination :deep(.next-button:hover) {
+  background-color: var(--bg-secondary);
+}
+
+.pagination :deep(.back-button[disabled]),
+.pagination :deep(.next-button[disabled]) {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.page-btn:not(:disabled):hover {
-  background: var(--bg-secondary);
-}
-
-.page-numbers {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.page-number {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.page-number.active {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.page-number:not(.active):hover {
-  background: var(--bg-secondary);
 }
 
 .modal-overlay {
