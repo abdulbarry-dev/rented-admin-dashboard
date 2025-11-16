@@ -1,183 +1,603 @@
-// PAGE PURPOSE: Batch processing interface for multiple verification approvals or rejections
-//
-// MAIN FUNCTIONALITY:
-// - Allow admins to review and process multiple verifications simultaneously
-// - Display verifications in a streamlined review interface
-// - Enable bulk approval of low-risk, straightforward submissions
-// - Bulk reject submissions with common issues
-// - Assign batch of verifications to specific admin
-// - Track bulk processing progress and results
-//
-// UI COMPONENTS:
-// - Bulk operation selector:
-//   * Bulk Approve (with confirmation)
-//   * Bulk Reject (with common reason selection)
-//   * Bulk Assign (to admin)
-//   * Bulk Flag for Review
-//   * Bulk Request Documents
-// - Verification selection panel:
-//   * Checkboxes for individual selection
-//   * "Select all low-risk" button
-//   * "Select all from same user" option
-//   * Selection counter (X of Y selected)
-// - Compact verification cards grid:
-//   * User photo and name
-//   * Submission ID and date
-//   * Document type and risk score
-//   * Quick preview thumbnail
-//   * Select checkbox
-//   * Risk score indicator
-// - Bulk filter options:
-//   * Risk level (show only low, medium, high)
-//   * Document type
-//   * Submission date range
-//   * Auto-select criteria (e.g., "all low-risk from last 24 hours")
-// - Bulk action confirmation modal
-// - Progress indicator during bulk processing
-// - Results summary after processing (X approved, Y rejected, Z failed)
-//
-// DATA REQUIREMENTS:
-// - State: selectedVerifications, bulkAction, isProcessing, processingProgress, results, filters
-// - API: GET /api/admin/verifications/bulk-candidates
-// - Query params: riskLevel, documentType, dateFrom, dateTo, limit
-// - Response: {
-//     candidates: [{ id, userId, userName, userPhoto, submittedAt, documentType, riskScore, thumbnailUrl }],
-//     total, stats: { lowRisk, mediumRisk, highRisk }
-//   }
-// - Bulk action API: POST /api/admin/verifications/bulk-process
-// - Payload: {
-//     action: 'approve' | 'reject' | 'assign' | 'flag' | 'request',
-//     verificationIds: [],
-//     reason?: string (for reject),
-//     assignTo?: adminId (for assign),
-//     requestDocuments?: [] (for request)
-//   }
-// - Response: {
-//     success: number,
-//     failed: number,
-//     results: [{ id, status, error }]
-//   }
-//
-// WORKFLOW:
-// 1. Load bulk processing candidates (typically low-risk submissions)
-// 2. Display verifications in compact grid with selection checkboxes
-// 3. Admin applies filters or uses auto-select for specific criteria
-// 4. Admin selects multiple verifications manually or via auto-select
-// 5. Admin chooses bulk action from action bar
-// 6. Confirmation modal shows selected count and action details
-// 7. Admin confirms action
-// 8. Backend processes all selected verifications
-// 9. Progress bar shows processing status
-// 10. Results summary displayed (successes and failures)
-// 11. Failed items shown with error reasons
-// 12. Option to retry failed items
-//
-// AUTO-SELECT CRITERIA:
-// - All low-risk (score 0-30) from last 24 hours
-// - All specific document type (e.g., all passports)
-// - All from same country
-// - All with specific risk threshold
-// - Clear selection button to deselect all
-//
-// BULK APPROVAL WORKFLOW:
-// - Only allow bulk approval for low-risk submissions (score < 30)
-// - Show warning if any medium/high-risk items selected
-// - Require confirmation with count display
-// - Process all approvals in backend batch job
-// - Send approval notifications to all users
-// - Update all verification statuses
-// - Log bulk approval action in audit trail
-//
-// BULK REJECTION WORKFLOW:
-// - Admin selects common rejection reason (applies to all)
-// - Option to add bulk rejection details/message
-// - Confirmation modal with selected count and reason
-// - Backend rejects all selected verifications
-// - Send rejection notifications to users with reason
-// - Allow users to resubmit
-// - Log bulk rejection in audit trail
-//
-// BULK ASSIGNMENT:
-// - Select admin from dropdown to assign batch to
-// - Assign all selected verifications to chosen admin
-// - Admin receives notification of new assignments
-// - Verifications locked to assigned admin
-// - Useful for workload distribution
-//
-// BULK FLAG FOR REVIEW:
-// - Move all selected verifications to fraud review queue
-// - Add bulk flag reason/note
-// - Notify fraud review team
-// - Verifications require manual detailed review before approval
-//
-// BULK REQUEST DOCUMENTS:
-// - Select which documents to request from users
-// - Add custom message explaining requirements
-// - Send document request to all selected users
-// - Verifications stay in pending state
-// - Auto-assign back to admin when documents uploaded
-//
-// PROGRESS TRACKING:
-// - Show progress bar during bulk processing
-// - Display current item being processed (X of Y)
-// - Estimated time remaining
-// - Option to cancel processing (rollback)
-//
-// RESULTS SUMMARY:
-// - Total selected: X
-// - Successfully processed: Y
-// - Failed: Z
-// - List of failed items with error reasons:
-//   * Already processed by another admin
-//   * User account suspended
-//   * Verification no longer exists
-//   * Network error
-// - Option to retry failed items
-// - Option to export results report
-//
-// SAFETY CHECKS:
-// - Prevent bulk approval of medium/high-risk submissions (show warning)
-// - Require explicit confirmation for all bulk actions
-// - Maximum bulk size limit (e.g., 100 items per batch)
-// - Double-check that verifications are still pending before processing
-// - Prevent duplicate processing (check lock status)
-//
-// SECURITY CONSIDERATIONS:
-// - Only admins with "bulk_verification" permission can access
-// - Audit log all bulk operations with full details
-// - Each individual approval/rejection logged separately
-// - Prevent abuse (rate limiting on bulk operations)
-// - Super Admin oversight of bulk rejection patterns
-//
-// PERFORMANCE OPTIMIZATION:
-// - Lazy load verification thumbnails
-// - Process bulk actions in background job (async)
-// - Show real-time progress updates via WebSocket
-// - Pagination for large candidate lists
-// - Limit bulk operation size to prevent server overload
-//
-// ERROR HANDLING:
-// - Handle partial failures gracefully (some succeed, some fail)
-// - Show clear error messages for failed items
-// - Retry mechanism for network failures
-// - Rollback option if critical error occurs
-// - Log all errors for debugging
-//
-// AUDIT COMPLIANCE:
-// - Record each individual action in bulk operation
-// - Track admin who initiated bulk action
-// - Timestamp all actions
-// - Include bulk action ID for traceability
-// - Generate audit report for bulk operations
-//
-// RESPONSIVE DESIGN:
-// - Grid collapses to single column on mobile
-// - Bulk action bar sticky at top
-// - Collapsible filters on small screens
-//
-// INTEGRATION POINTS:
-// - Router: Navigate to VerificationDetail.vue for individual review
-// - WebSocket: Real-time progress updates during processing
-// - Store: Cache bulk selections and results
-// - Notification Service: Send bulk notifications to users
-// - Audit Service: Log all bulk operations
+<template>
+  <div class="bulk-verification">
+    <div class="page-header">
+      <h1>Bulk Verification</h1>
+      <p class="subtitle">Process multiple verifications efficiently</p>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="upload-section">
+      <div class="upload-area" @dragover.prevent @drop="handleDrop">
+        <ArrowUpTrayIcon class="upload-icon" />
+        <h3>Upload Verification Batch</h3>
+        <p>Drag and drop CSV file or click to browse</p>
+        <input type="file" accept=".csv,.xlsx" @change="handleFileUpload" hidden ref="fileInput" />
+        <button class="btn primary" @click="$refs.fileInput.click()">Select File</button>
+      </div>
+    </div>
+
+    <!-- Batch Stats -->
+    <div v-if="batchItems.length > 0" class="stats-grid">
+      <div class="stat-card">
+        <ClipboardDocumentListIcon class="stat-icon" />
+        <div class="stat-content">
+          <span class="stat-label">Total Items</span>
+          <span class="stat-value">{{ batchItems.length }}</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <CheckCircleIcon class="stat-icon success" />
+        <div class="stat-content">
+          <span class="stat-label">Approved</span>
+          <span class="stat-value">{{ approved }}</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <XCircleIcon class="stat-icon danger" />
+        <div class="stat-content">
+          <span class="stat-label">Rejected</span>
+          <span class="stat-value">{{ rejected }}</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <ClockIcon class="stat-icon pending" />
+        <div class="stat-content">
+          <span class="stat-label">Pending</span>
+          <span class="stat-value">{{ pending }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Items Grid -->
+    <div v-if="batchItems.length > 0" class="batch-section">
+      <div class="section-header">
+        <h2>Batch Items</h2>
+        <div class="bulk-actions">
+          <button class="btn success" @click="approveAll" :disabled="pending === 0">
+            Approve All Pending
+          </button>
+          <button class="btn danger" @click="rejectAll" :disabled="pending === 0">
+            Reject All Pending
+          </button>
+        </div>
+      </div>
+
+      <div class="items-grid">
+        <div v-for="item in batchItems" :key="item.id" class="batch-item" :class="item.status">
+          <div class="item-header">
+            <img :src="item.photo || '/default-avatar.png'" alt="User" class="item-photo" />
+            <div class="item-info">
+              <h4>{{ item.name }}</h4>
+              <p>{{ item.email }}</p>
+            </div>
+            <div class="status-badge" :class="item.status">
+              {{ item.status }}
+            </div>
+          </div>
+
+          <div class="item-details">
+            <div class="detail-row">
+              <span class="detail-label">Document Type</span>
+              <span class="detail-value">{{ item.documentType }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Risk Score</span>
+              <span class="detail-value" :class="getRiskClass(item.riskScore)">{{ item.riskScore }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Submitted</span>
+              <span class="detail-value">{{ formatDate(item.submittedAt) }}</span>
+            </div>
+          </div>
+
+          <div v-if="item.status === 'pending'" class="item-actions">
+            <button class="action-btn success" @click="approveItem(item.id)">
+              <CheckIcon class="icon" />
+              Approve
+            </button>
+            <button class="action-btn danger" @click="rejectItem(item.id)">
+              <XMarkIcon class="icon" />
+              Reject
+            </button>
+          </div>
+
+          <div v-else-if="item.status === 'rejected'" class="rejection-info">
+            <ExclamationTriangleIcon class="icon" />
+            <span>{{ item.rejectionReason }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else class="empty-state">
+      <DocumentTextIcon class="empty-icon" />
+      <h3>No batch loaded</h3>
+      <p>Upload a CSV file to start bulk verification processing</p>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import {
+  ArrowUpTrayIcon,
+  ClipboardDocumentListIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  CheckIcon,
+  XMarkIcon,
+  ExclamationTriangleIcon,
+  DocumentTextIcon
+} from '@heroicons/vue/24/outline'
+
+interface BatchItem {
+  id: string
+  name: string
+  email: string
+  photo: string | null
+  documentType: string
+  riskScore: number
+  submittedAt: string
+  status: 'pending' | 'approved' | 'rejected'
+  rejectionReason?: string
+}
+
+const fileInput = ref<HTMLInputElement | null>(null)
+const batchItems = ref<BatchItem[]>([])
+
+const approved = computed(() => batchItems.value.filter(i => i.status === 'approved').length)
+const rejected = computed(() => batchItems.value.filter(i => i.status === 'rejected').length)
+const pending = computed(() => batchItems.value.filter(i => i.status === 'pending').length)
+
+const handleFileUpload = (e: Event) => {
+  const files = (e.target as HTMLInputElement).files
+  if (files && files.length > 0) {
+    loadMockData()
+  }
+}
+
+const handleDrop = (e: DragEvent) => {
+  e.preventDefault()
+  const files = e.dataTransfer?.files
+  if (files && files.length > 0) {
+    loadMockData()
+  }
+}
+
+const loadMockData = () => {
+  batchItems.value = Array.from({ length: 12 }, (_, i) => ({
+    id: `BV${1000 + i}`,
+    name: `User ${i + 1}`,
+    email: `user${i + 1}@example.com`,
+    photo: null,
+    documentType: ['Passport', 'Driver License', 'National ID'][i % 3],
+    riskScore: Math.floor(Math.random() * 100),
+    submittedAt: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+    status: 'pending'
+  }))
+}
+
+const approveItem = (id: string) => {
+  const item = batchItems.value.find(i => i.id === id)
+  if (item) item.status = 'approved'
+}
+
+const rejectItem = (id: string) => {
+  const item = batchItems.value.find(i => i.id === id)
+  if (item) {
+    item.status = 'rejected'
+    item.rejectionReason = 'Document quality issues'
+  }
+}
+
+const approveAll = () => {
+  batchItems.value.forEach(item => {
+    if (item.status === 'pending') item.status = 'approved'
+  })
+}
+
+const rejectAll = () => {
+  batchItems.value.forEach(item => {
+    if (item.status === 'pending') {
+      item.status = 'rejected'
+      item.rejectionReason = 'Bulk rejection'
+    }
+  })
+}
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString()
+const getRiskClass = (score: number) => score <= 30 ? 'low' : score <= 60 ? 'medium' : 'high'
+</script>
+
+<style scoped>
+.bulk-verification {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.upload-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  border: 1px solid var(--border-color);
+}
+
+.upload-area {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.upload-area:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-secondary);
+}
+
+.upload-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-secondary);
+  margin: 0 auto 1rem;
+}
+
+.upload-area h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.upload-area p {
+  color: var(--text-secondary);
+  margin: 0 0 1.5rem 0;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn.primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn.success {
+  background: #22c55e;
+  color: white;
+}
+
+.btn.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.stat-icon.success { color: #22c55e; }
+.stat-icon.danger { color: #ef4444; }
+.stat-icon.pending { color: #f59e0b; }
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.batch-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.batch-item {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.batch-item:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.batch-item.approved {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.batch-item.rejected {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.item-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-color);
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-info h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-info p {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-badge {
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.status-badge.approved {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.status-badge.rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-value.low { color: #22c55e; }
+.detail-value.medium { color: #f59e0b; }
+.detail-value.high { color: #ef4444; }
+
+.item-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.action-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.action-btn.success {
+  background: #22c55e;
+}
+
+.action-btn.danger {
+  background: #ef4444;
+}
+
+.action-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.rejection-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: #ef4444;
+}
+
+.rejection-info .icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.empty-state {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 4rem 2rem;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--text-secondary);
+  margin: 0 auto 1.5rem;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bulk-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .bulk-actions .btn {
+    width: 100%;
+  }
+}
+</style>

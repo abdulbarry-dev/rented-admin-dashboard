@@ -1,166 +1,681 @@
-// PAGE PURPOSE: Complete audit trail of all verification attempts with history and rejection reasons
-//
-// MAIN FUNCTIONALITY:
-// - Display comprehensive history of all verification submissions (approved, rejected, pending)
-// - Filter by user, date range, status, admin reviewer
-// - View submission details and decision rationale
-// - Export verification data for compliance reporting
-// - Track trends in rejection reasons and approval rates
-// - Monitor admin performance metrics
-//
-// UI COMPONENTS:
-// - History statistics dashboard:
-//   * Total verifications processed (all time / period)
-//   * Approval rate percentage
-//   * Average processing time
-//   * Top rejection reasons chart
-// - Advanced filter panel:
-//   * Date range picker (last 7 days, 30 days, 90 days, custom)
-//   * Status filter (all, approved, rejected, pending, flagged)
-//   * User search (name, email, user ID)
-//   * Reviewer filter (by admin who processed)
-//   * Document type filter
-//   * Country filter
-// - History table with columns:
-//   * Submission ID and date
-//   * User name and email
-//   * Document type
-//   * Status badge (approved/rejected/pending)
-//   * Reviewed by (admin name)
-//   * Review date and processing time
-//   * Rejection reason (if applicable)
-//   * Actions (View Details, View User Profile)
-// - Export button (CSV, Excel, PDF)
-// - Pagination controls
-// - Detail modal/panel for viewing full submission
-//
-// DATA REQUIREMENTS:
-// - State: history, filters, sortBy, dateRange, isLoading, pagination, stats
-// - API: GET /api/admin/verifications/history
-// - Query params: page, limit, status, userId, adminId, dateFrom, dateTo, documentType, country
-// - Response: {
-//     verifications: [{
-//       id, userId, userName, userEmail,
-//       submittedAt, reviewedAt, processingTimeMinutes,
-//       documentType, country, status,
-//       reviewedBy: { adminId, adminName },
-//       rejectionReason, rejectionDetails,
-//       riskScore, fraudFlags
-//     }],
-//     total, page, totalPages,
-//     stats: {
-//       totalProcessed, approvalRate, avgProcessingTime,
-//       rejectionReasons: [{ reason, count, percentage }],
-//       adminPerformance: [{ adminId, adminName, processed, avgTime }]
-//     }
-//   }
-//
-// WORKFLOW:
-// 1. Load verification history on page mount with default filters
-// 2. Display statistics summary at top
-// 3. Show verification history table with all submissions
-// 4. Admin applies filters to narrow down results
-// 5. Click on history entry to view full details
-// 6. Export filtered data for reporting or compliance
-// 7. Monitor trends and patterns in verification outcomes
-//
-// FILTERING CAPABILITIES:
-// - Date range: Filter by submission date or review date
-// - Status: All, Approved, Rejected, Pending, Flagged for Fraud
-// - User: Search by user name, email, or ID
-// - Reviewer: Filter by admin who reviewed (to audit individual performance)
-// - Document type: Passport, Driver's License, National ID, etc.
-// - Country: Filter by document issuing country
-// - Risk score: Low (0-30), Medium (31-60), High (61-100)
-// - Outcome: First attempt success, resubmission success, multiple rejections
-//
-// SORTING OPTIONS:
-// - Newest first (default)
-// - Oldest first
-// - Processing time (longest first, shortest first)
-// - Risk score (highest first, lowest first)
-// - Status (approved → pending → rejected)
-//
-// STATISTICS DISPLAY:
-// - Total verifications processed (in selected period)
-// - Approval rate: (approved / total) * 100
-// - Average processing time: Time from submission to decision
-// - Top rejection reasons with pie chart
-// - Admin performance leaderboard (most processed, fastest avg time)
-// - Trend chart showing verifications over time
-//
-// REJECTION REASONS ANALYSIS:
-// - Show top 10 rejection reasons with counts
-// - Percentage breakdown in pie chart
-// - Trend analysis (increasing/decreasing for each reason)
-// - Helps identify systemic issues or user education needs
-//
-// EXPORT FUNCTIONALITY:
-// - Export current filtered view to CSV, Excel, or PDF
-// - Include all columns: ID, user, date, status, reviewer, reason, time
-// - Option to include sensitive data (admin-only)
-// - Audit log export actions for compliance
-// - Generate downloadable report with statistics
-//
-// DETAIL VIEW (Modal/Panel):
-// - When clicking on history entry, show full details:
-//   * All user information
-//   * Document images (if still available)
-//   * Verification checklist results
-//   * AI fraud indicators
-//   * Admin notes and decision rationale
-//   * Timeline of all attempts for this user
-// - Option to reopen verification if mistake was made
-//
-// ADMIN PERFORMANCE TRACKING:
-// - Show which admins processed which verifications
-// - Calculate average processing time per admin
-// - Identify bottlenecks (slow reviewers or overwhelmed admins)
-// - Approval/rejection rate per admin (to ensure consistency)
-// - Used for performance reviews and workload balancing
-//
-// TREND ANALYSIS:
-// - Verification volume trend chart (submissions per day/week/month)
-// - Approval rate trend over time
-// - Processing time trend (improving/degrading)
-// - Fraud flag frequency trend
-// - Helps identify patterns and optimize verification process
-//
-// COMPLIANCE & AUDIT:
-// - Complete audit trail for regulatory compliance (KYC requirements)
-// - Record of who approved/rejected each verification
-// - Timestamp of all actions
-// - Rationale for decisions (rejection reasons, notes)
-// - Exportable reports for auditors
-// - Retention period tracking (auto-archive after X years)
-//
-// SECURITY CONSIDERATIONS:
-// - Only admins with "verification_history" permission can access
-// - Sensitive data (document images) available only to authorized roles
-// - Audit log all history accesses and exports
-// - PII data handling compliance (GDPR, privacy regulations)
-// - Anonymize data for aggregated statistics
-//
-// PERFORMANCE OPTIMIZATION:
-// - Paginate results (50-100 per page)
-// - Lazy load statistics charts
-// - Cache frequently accessed filters
-// - Debounce search inputs
-// - Virtual scrolling for large result sets
-//
-// ERROR HANDLING:
-// - Handle missing verification data gracefully
-// - Show error if history fails to load
-// - Fallback to cached data if available
-// - Retry mechanism for failed API calls
-//
-// RESPONSIVE DESIGN:
-// - Table collapses to card view on mobile
-// - Filter panel collapsible on small screens
-// - Charts responsive and mobile-friendly
-//
-// INTEGRATION POINTS:
-// - Router: Navigate to VerificationDetail.vue, UserDetail.vue
-// - Store: Cache history data and filter selections
-// - Export Service: Generate CSV/Excel/PDF reports
-// - Chart Library: Display statistics and trends
+<template>
+  <div class="verification-history">
+    <div class="page-header">
+      <div>
+        <h1>Verification History</h1>
+        <p class="subtitle">Complete audit trail of all verifications</p>
+      </div>
+      <button class="btn primary" @click="exportHistory">
+        <ArrowDownTrayIcon class="icon" />
+        Export
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon-wrapper success">
+          <CheckCircleIcon class="stat-icon" />
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Total Approved</span>
+          <span class="stat-value">{{ stats.totalApproved.toLocaleString() }}</span>
+          <span class="stat-change positive">+12% this month</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper danger">
+          <XCircleIcon class="stat-icon" />
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Total Rejected</span>
+          <span class="stat-value">{{ stats.totalRejected.toLocaleString() }}</span>
+          <span class="stat-change negative">-5% this month</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper primary">
+          <ClockIcon class="stat-icon" />
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Avg Processing Time</span>
+          <span class="stat-value">{{ stats.avgProcessingTime }}</span>
+          <span class="stat-change positive">-15 min this month</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper warning">
+          <ShieldExclamationIcon class="stat-icon" />
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Fraud Detected</span>
+          <span class="stat-value">{{ stats.fraudDetected }}</span>
+          <span class="stat-change negative">+3 this month</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+      <div class="filter-group">
+        <MagnifyingGlassIcon class="search-icon" />
+        <input
+          v-model="filters.search"
+          type="text"
+          placeholder="Search by name, email, or ID..."
+          class="search-input"
+        />
+      </div>
+      <div class="filter-row">
+        <select v-model="filters.status" class="filter-select">
+          <option value="">All Statuses</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="flagged">Flagged</option>
+        </select>
+        <select v-model="filters.verifier" class="filter-select">
+          <option value="">All Verifiers</option>
+          <option value="admin1">Admin 1</option>
+          <option value="admin2">Admin 2</option>
+        </select>
+        <select v-model="filters.dateRange" class="filter-select">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn secondary">
+          Clear Filters
+        </button>
+      </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="table-section">
+      <div class="table-container">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Document Type</th>
+              <th>Submitted</th>
+              <th>Processed</th>
+              <th>Verifier</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="record in paginatedHistory" :key="record.id">
+              <td>
+                <div class="user-cell">
+                  <img :src="record.user.photo || '/default-avatar.png'" alt="User" class="user-photo" />
+                  <div>
+                    <div class="user-name">{{ record.user.name }}</div>
+                    <div class="user-email">{{ record.user.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="document-type">{{ record.documentType }}</span>
+              </td>
+              <td>
+                <div class="date-cell">
+                  <div>{{ formatDate(record.submittedAt) }}</div>
+                  <div class="time-text">{{ formatTime(record.submittedAt) }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="date-cell">
+                  <div>{{ formatDate(record.processedAt) }}</div>
+                  <div class="time-text">{{ formatTime(record.processedAt) }}</div>
+                </div>
+              </td>
+              <td>
+                <span class="verifier">{{ record.verifier }}</span>
+              </td>
+              <td>
+                <span class="status-badge" :class="record.status">
+                  {{ record.status }}
+                </span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-icon" @click="viewDetails(record.id)" title="View Details">
+                    <EyeIcon class="icon" />
+                  </button>
+                  <button class="action-icon" @click="downloadRecord(record.id)" title="Download">
+                    <ArrowDownTrayIcon class="icon" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button
+          class="pagination-btn"
+          :disabled="pagination.currentPage === 1"
+          @click="pagination.currentPage--"
+        >
+          <ChevronLeftIcon class="icon" />
+          Previous
+        </button>
+        <div class="pagination-info">
+          Page {{ pagination.currentPage }} of {{ totalPages }}
+        </div>
+        <button
+          class="pagination-btn"
+          :disabled="pagination.currentPage === totalPages"
+          @click="pagination.currentPage++"
+        >
+          Next
+          <ChevronRightIcon class="icon" />
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  ShieldExclamationIcon,
+  MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
+  EyeIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
+} from '@heroicons/vue/24/outline'
+
+const router = useRouter()
+
+const stats = ref({
+  totalApproved: 45892,
+  totalRejected: 3421,
+  avgProcessingTime: '2h 15m',
+  fraudDetected: 127
+})
+
+const filters = ref({
+  search: '',
+  status: '',
+  verifier: '',
+  dateRange: 'all'
+})
+
+const pagination = ref({
+  currentPage: 1,
+  itemsPerPage: 10
+})
+
+const historyRecords = ref(
+  Array.from({ length: 50 }, (_, i) => ({
+    id: `VH${10000 + i}`,
+    user: {
+      name: `User ${i + 1}`,
+      email: `user${i + 1}@example.com`,
+      photo: null
+    },
+    documentType: ['Passport', 'Driver License', 'National ID'][i % 3],
+    submittedAt: new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
+    processedAt: new Date(Date.now() - Math.random() * 86400000 * 25).toISOString(),
+    verifier: `Admin ${(i % 5) + 1}`,
+    status: ['approved', 'rejected', 'flagged'][i % 3] as 'approved' | 'rejected' | 'flagged'
+  }))
+)
+
+const hasActiveFilters = computed(() => {
+  return filters.value.search || filters.value.status || filters.value.verifier || filters.value.dateRange !== 'all'
+})
+
+const filteredHistory = computed(() => {
+  return historyRecords.value.filter(record => {
+    if (filters.value.search) {
+      const search = filters.value.search.toLowerCase()
+      if (
+        !record.user.name.toLowerCase().includes(search) &&
+        !record.user.email.toLowerCase().includes(search) &&
+        !record.id.toLowerCase().includes(search)
+      ) {
+        return false
+      }
+    }
+    if (filters.value.status && record.status !== filters.value.status) return false
+    if (filters.value.verifier && record.verifier !== filters.value.verifier) return false
+    return true
+  })
+})
+
+const paginatedHistory = computed(() => {
+  const start = (pagination.value.currentPage - 1) * pagination.value.itemsPerPage
+  const end = start + pagination.value.itemsPerPage
+  return filteredHistory.value.slice(start, end)
+})
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredHistory.value.length / pagination.value.itemsPerPage)
+})
+
+const clearFilters = () => {
+  filters.value = {
+    search: '',
+    status: '',
+    verifier: '',
+    dateRange: 'all'
+  }
+}
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString()
+const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+const viewDetails = (id: string) => {
+  router.push(`/verification/detail/${id}`)
+}
+
+const downloadRecord = (id: string) => {
+  console.log('Downloading record:', id)
+}
+
+const exportHistory = () => {
+  console.log('Exporting history')
+}
+</script>
+
+<style scoped>
+.verification-history {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.page-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn.secondary {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stat-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon-wrapper.success { background: rgba(34, 197, 94, 0.1); }
+.stat-icon-wrapper.danger { background: rgba(239, 68, 68, 0.1); }
+.stat-icon-wrapper.primary { background: rgba(59, 130, 246, 0.1); }
+.stat-icon-wrapper.warning { background: rgba(245, 158, 11, 0.1); }
+
+.stat-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.stat-icon-wrapper.success .stat-icon { color: #22c55e; }
+.stat-icon-wrapper.danger .stat-icon { color: #ef4444; }
+.stat-icon-wrapper.primary .stat-icon { color: #3b82f6; }
+.stat-icon-wrapper.warning .stat-icon { color: #f59e0b; }
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-change {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.stat-change.positive { color: #22c55e; }
+.stat-change.negative { color: #ef4444; }
+
+.filters-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.filter-group {
+  position: relative;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 3rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.filter-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.table-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table thead {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table th {
+  padding: 1rem 1.25rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.history-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.2s ease;
+}
+
+.history-table tbody tr:hover {
+  background: var(--bg-secondary);
+}
+
+.history-table td {
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-photo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-secondary);
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-email {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.document-type {
+  font-weight: 500;
+}
+
+.date-cell .time-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.verifier {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.approved {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.status-badge.rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.status-badge.flagged {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+
+.action-icon:hover {
+  background: var(--bg-secondary);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.pagination-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--bg-secondary);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .history-table {
+    font-size: 0.8125rem;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 0.75rem;
+  }
+}
+</style>

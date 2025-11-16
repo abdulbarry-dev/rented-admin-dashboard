@@ -1,173 +1,686 @@
-// PAGE PURPOSE: Individual verification review page with document viewer and approval/rejection actions
-//
-// MAIN FUNCTIONALITY:
-// - Display complete user information for verification review
-// - Show all uploaded identification documents with zoom and rotation
-// - Provide AI-assisted fraud detection indicators
-// - Compare document photo with user selfie
-// - Allow approval or rejection with reason selection
-// - View previous verification attempts and history
-// - Add administrative notes and flags
-//
-// UI COMPONENTS:
-// - User information panel:
-//   * Profile photo and selfie comparison
-//   * Full name, email, phone number
-//   * Account creation date, registration country
-//   * Previous verification attempts count
-//   * User account status and flags
-// - Document viewer section:
-//   * Uploaded document images (front, back, selfie)
-//   * Zoom in/out controls
-//   * Rotate document controls
-//   * Side-by-side comparison view
-//   * Document type label
-// - Verification checklist:
-//   * Name matches document ✓/✗
-//   * Photo matches selfie ✓/✗
-//   * Document not expired ✓/✗
-//   * Document appears authentic ✓/✗
-//   * Address readable ✓/✗
-// - AI fraud detection panel:
-//   * Overall risk score with explanation
-//   * Specific fraud indicators detected
-//   * Duplicate document warnings
-//   * Image manipulation detection results
-// - Previous submissions timeline (if exists)
-// - Action buttons:
-//   * Approve Verification (green)
-//   * Reject Verification (red)
-//   * Request Additional Documents (yellow)
-//   * Flag for Fraud Review (orange)
-//   * Add Note (gray)
-// - Rejection reason modal (appears on reject)
-// - Admin notes section (add private notes)
-// - Verification history (all attempts for this user)
-//
-// DATA REQUIREMENTS:
-// - State: verification, isLoading, selectedDocument, zoomLevel, rotation, checklistStatus, notes
-// - URL params: verificationId (from queue or direct link)
-// - API: GET /api/admin/verifications/:id
-// - Response: {
-//     id, userId, submittedAt, status,
-//     user: { name, email, phone, photo, registrationDate, country, accountStatus },
-//     documents: [{ type, frontUrl, backUrl, selfieUrl, uploadedAt }],
-//     riskScore, fraudIndicators: [{ type, severity, description }],
-//     checklistItems: { nameMatch: bool, photoMatch: bool, notExpired: bool, authentic: bool, readable: bool },
-//     previousAttempts: [{ id, submittedAt, status, rejectionReason }],
-//     assignedTo: adminId,
-//     notes: [{ adminId, adminName, note, timestamp }]
-//   }
-// - Action APIs:
-//   * POST /api/admin/verifications/:id/approve
-//   * POST /api/admin/verifications/:id/reject (payload: { reason, details })
-//   * POST /api/admin/verifications/:id/request-documents (payload: { requestedDocuments[], message })
-//   * POST /api/admin/verifications/:id/flag-fraud
-//   * POST /api/admin/verifications/:id/notes (payload: { note })
-//
-// WORKFLOW:
-// 1. Load verification details on page mount using ID from URL
-// 2. Display user information and documents
-// 3. Show AI fraud indicators and risk score
-// 4. Admin reviews documents using viewer tools (zoom, rotate, compare)
-// 5. Admin completes verification checklist manually
-// 6. Admin decides action:
-//    a. APPROVE: Confirm approval, send success notification to user
-//    b. REJECT: Select rejection reason, add details, send notification
-//    c. REQUEST MORE: Specify documents needed, send request to user
-//    d. FLAG FRAUD: Move to fraud investigation queue
-// 7. Action recorded in audit log and verification history
-// 8. Redirect to next pending verification or back to queue
-//
-// DOCUMENT VIEWER FEATURES:
-// - View front and back of ID document side-by-side
-// - Zoom in up to 400% to check details
-// - Rotate documents if uploaded incorrectly
-// - Full-screen mode for detailed inspection
-// - Compare document photo with user selfie side-by-side
-// - Highlight extracted text fields (AI OCR results)
-//
-// VERIFICATION CHECKLIST:
-// - Name on document matches registered name
-// - Photo on document matches selfie photo
-// - Document expiration date is valid (not expired)
-// - Document appears authentic (no tampering signs)
-// - Address and other details are readable
-// - Admin manually checks each item before approval
-//
-// AI FRAUD DETECTION INDICATORS:
-// - Overall risk score (0-100) with color coding
-// - Specific warnings:
-//   * Duplicate document (same ID submitted by multiple users)
-//   * Image manipulation detected (photoshopping)
-//   * Document not from claimed country
-//   * Facial recognition mismatch (photo vs selfie)
-//   * Document reported as stolen/fraudulent
-// - Each indicator has severity level and explanation
-//
-// REJECTION REASONS (Dropdown):
-// - Document expired
-// - Document unclear/unreadable
-// - Photo doesn't match
-// - Document appears tampered/fake
-// - Incomplete information
-// - Wrong document type
-// - Suspected fraud
-// - Other (with details field)
-//
-// APPROVAL WORKFLOW:
-// 1. Admin clicks "Approve Verification"
-// 2. Confirm approval modal appears
-// 3. Admin confirms
-// 4. Backend updates user verification status to "verified"
-// 5. User receives approval notification (email + in-app)
-// 6. Verification unlocks user account features (buying, renting)
-// 7. Admin redirected to next pending verification
-//
-// REJECTION WORKFLOW:
-// 1. Admin clicks "Reject Verification"
-// 2. Rejection reason modal opens
-// 3. Admin selects primary reason and adds details
-// 4. Admin confirms rejection
-// 5. Backend updates status to "rejected"
-// 6. User receives rejection notification with reason and resubmission instructions
-// 7. User can resubmit with new documents
-// 8. Admin redirected to next pending verification
-//
-// REQUEST ADDITIONAL DOCUMENTS:
-// - Admin specifies which documents are needed
-// - Custom message to user explaining requirements
-// - User receives notification to upload additional documents
-// - Verification stays in pending state
-// - Auto-assigns back to same admin when documents uploaded
-//
-// SECURITY CONSIDERATIONS:
-// - Lock verification when admin opens (prevent concurrent reviews)
-// - Only assigned admin or unassigned verifications can be reviewed
-// - Audit log all approval/rejection actions
-// - Sensitive document URLs expire after 1 hour
-// - Admin notes are private (not shown to users)
-// - Fraud flags trigger immediate security review
-//
-// PREVIOUS ATTEMPTS DISPLAY:
-// - Timeline of all previous verification submissions
-// - Show each attempt's submission date, status, and rejection reason
-// - Highlight patterns (multiple rejections for same reason)
-// - Warning if >3 previous rejections (potential fraud)
-//
-// PERFORMANCE OPTIMIZATION:
-// - Lazy load document images
-// - Preload next verification in queue for faster navigation
-// - Cache verification data during review session
-//
-// ERROR HANDLING:
-// - Handle case where verification no longer exists (already processed)
-// - Show error if document images fail to load
-// - Retry mechanism for action failures
-//
-// INTEGRATION POINTS:
-// - Router: Navigate to next verification, return to queue
-// - API Service: Verification detail, approval, rejection endpoints
-// - Image Viewer: Zoom, rotate, full-screen document viewer
-// - Notification Service: Send user notifications on approve/reject
-// - Audit Service: Log all verification actions
+<template>
+  <div class="verification-detail">
+    <div class="detail-header">
+      <button class="back-btn" @click="$router.back()">
+        <ArrowLeftIcon class="icon" />
+        Back to Queue
+      </button>
+      <div class="header-actions">
+        <button class="action-btn danger" @click="showRejectModal = true">
+          <XMarkIcon class="icon" />
+          Reject
+        </button>
+        <button class="action-btn success" @click="showApproveModal = true">
+          <CheckIcon class="icon" />
+          Approve
+        </button>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <!-- User Info Panel -->
+      <div class="info-panel">
+        <h3 class="panel-title">User Information</h3>
+        <div class="user-profile">
+          <img :src="verification.user.photo || '/default-avatar.png'" alt="User" class="profile-photo" />
+          <div class="profile-info">
+            <h4>{{ verification.user.name }}</h4>
+            <p>{{ verification.user.email }}</p>
+            <p>{{ verification.user.phone }}</p>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Account Created</span>
+            <span class="info-value">{{ formatDate(verification.user.registrationDate) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Country</span>
+            <span class="info-value">{{ verification.user.country }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Previous Attempts</span>
+            <span class="info-value">{{ verification.previousAttempts.length }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Document Viewer -->
+      <div class="document-viewer">
+        <h3 class="panel-title">Documents</h3>
+        <div class="viewer-controls">
+          <button @click="zoomIn" class="control-btn"><MagnifyingGlassPlusIcon class="icon" /></button>
+          <button @click="zoomOut" class="control-btn"><MagnifyingGlassMinusIcon class="icon" /></button>
+          <button @click="rotateDocument" class="control-btn"><ArrowPathIcon class="icon" /></button>
+        </div>
+        <div class="documents-grid">
+          <div v-for="(doc, index) in verification.documents" :key="index" class="document-item">
+            <img
+              :src="doc.frontUrl"
+              alt="Document"
+              class="document-image"
+              :style="{ transform: `scale(${zoom}) rotate(${rotation}deg)` }"
+            />
+            <span class="document-label">{{ doc.type }} - Front</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verification Checklist -->
+      <div class="checklist-panel">
+        <h3 class="panel-title">Verification Checklist</h3>
+        <div class="checklist">
+          <div v-for="(item, key) in verification.checklistItems" :key="key" class="checklist-item">
+            <input type="checkbox" :checked="item" :id="key" />
+            <label :for="key">{{ formatChecklistLabel(key) }}</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Fraud Detection -->
+      <div class="fraud-panel">
+        <h3 class="panel-title">AI Fraud Detection</h3>
+        <div class="risk-score-display">
+          <div class="risk-circle" :class="getRiskClass(verification.riskScore)">
+            {{ verification.riskScore }}
+          </div>
+          <span>Risk Score</span>
+        </div>
+        <div v-if="verification.fraudIndicators.length > 0" class="fraud-indicators">
+          <div v-for="(indicator, index) in verification.fraudIndicators" :key="index" class="fraud-indicator">
+            <ExclamationTriangleIcon class="indicator-icon" :class="indicator.severity" />
+            <div>
+              <div class="indicator-type">{{ indicator.type }}</div>
+              <div class="indicator-desc">{{ indicator.description }}</div>
+            </div>
+          </div>
+        </div>
+        <p v-else class="no-indicators">No fraud indicators detected</p>
+      </div>
+    </div>
+
+    <!-- Approve Modal -->
+    <teleport to="body">
+      <div v-if="showApproveModal" class="modal-overlay" @click="showApproveModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Approve Verification</h3>
+            <button class="modal-close" @click="showApproveModal = false">
+              <XMarkIcon class="icon" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>Approve verification for <strong>{{ verification.user.name }}</strong>?</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn secondary" @click="showApproveModal = false">Cancel</button>
+            <button class="btn success" @click="approve">Approve</button>
+          </div>
+        </div>
+      </div>
+    </teleport>
+
+    <!-- Reject Modal -->
+    <teleport to="body">
+      <div v-if="showRejectModal" class="modal-overlay" @click="showRejectModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Reject Verification</h3>
+            <button class="modal-close" @click="showRejectModal = false">
+              <XMarkIcon class="icon" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <label class="form-label">Rejection Reason</label>
+            <select v-model="rejectionReason" class="form-select">
+              <option value="">Select a reason...</option>
+              <option value="expired">Document expired</option>
+              <option value="unclear">Document unclear</option>
+              <option value="photo_mismatch">Photo mismatch</option>
+              <option value="tampered">Document tampered</option>
+              <option value="suspected_fraud">Suspected fraud</option>
+            </select>
+            <label class="form-label">Details</label>
+            <textarea v-model="rejectionDetails" class="form-textarea" rows="3"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button class="btn secondary" @click="showRejectModal = false">Cancel</button>
+            <button class="btn danger" :disabled="!rejectionReason" @click="reject">Reject</button>
+          </div>
+        </div>
+      </div>
+    </teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  ArrowLeftIcon,
+  XMarkIcon,
+  CheckIcon,
+  MagnifyingGlassPlusIcon,
+  MagnifyingGlassMinusIcon,
+  ArrowPathIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/vue/24/outline'
+
+const route = useRoute()
+const router = useRouter()
+
+const showApproveModal = ref(false)
+const showRejectModal = ref(false)
+const rejectionReason = ref('')
+const rejectionDetails = ref('')
+const zoom = ref(1)
+const rotation = ref(0)
+
+const verification = ref({
+  id: route.params.id,
+  user: {
+    name: 'John Doe',
+    email: 'john@example.com',
+    phone: '+1 234 567 8900',
+    photo: null,
+    registrationDate: '2024-01-15',
+    country: 'United States'
+  },
+  documents: [
+    { type: 'Passport', frontUrl: 'https://via.placeholder.com/400x250', backUrl: '', selfieUrl: '' }
+  ],
+  riskScore: 25,
+  fraudIndicators: [],
+  checklistItems: {
+    nameMatch: true,
+    photoMatch: true,
+    notExpired: true,
+    authentic: true,
+    readable: true
+  },
+  previousAttempts: []
+})
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString()
+const formatChecklistLabel = (key: string) => key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+const getRiskClass = (score: number) => score <= 30 ? 'low' : score <= 60 ? 'medium' : 'high'
+
+const zoomIn = () => { zoom.value = Math.min(zoom.value + 0.2, 3) }
+const zoomOut = () => { zoom.value = Math.max(zoom.value - 0.2, 0.5) }
+const rotateDocument = () => { rotation.value = (rotation.value + 90) % 360 }
+
+const approve = () => {
+  console.log('Approving verification:', verification.value.id)
+  showApproveModal.value = false
+  router.push('/verification/queue')
+}
+
+const reject = () => {
+  console.log('Rejecting:', rejectionReason.value, rejectionDetails.value)
+  showRejectModal.value = false
+  router.push('/verification/queue')
+}
+
+onMounted(() => {
+  console.log('Loading verification:', route.params.id)
+})
+</script>
+
+<style scoped>
+.verification-detail {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.back-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.back-btn:hover {
+  background: var(--bg-color);
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  color: white;
+}
+
+.action-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.action-btn.success {
+  background: #22c55e;
+}
+
+.action-btn.danger {
+  background: #ef4444;
+}
+
+.action-btn:hover {
+  opacity: 0.9;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+}
+
+.info-panel, .document-viewer, .checklist-panel, .fraud-panel {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 1.25rem 0;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-photo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-secondary);
+}
+
+.profile-info h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.profile-info p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0;
+}
+
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.info-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.viewer-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+}
+
+.control-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.documents-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.document-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.document-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.document-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.checklist-item label {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.risk-score-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.risk-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
+
+.risk-circle.low { background: #22c55e; }
+.risk-circle.medium { background: #f59e0b; }
+.risk-circle.high { background: #ef4444; }
+
+.fraud-indicators {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fraud-indicator {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.indicator-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.indicator-icon.high { color: #ef4444; }
+.indicator-icon.medium { color: #f59e0b; }
+.indicator-icon.low { color: #3b82f6; }
+
+.indicator-type {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.indicator-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.no-indicators {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
+  font-size: 0.875rem;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  max-width: 500px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.modal-close:hover {
+  background: var(--bg-secondary);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-body p {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.form-select, .form-textarea {
+  width: 100%;
+  padding: 0.625rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.form-select:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.form-textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btn {
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn.secondary {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn.secondary:hover {
+  background: var(--bg-color);
+}
+
+.btn.success {
+  background: #22c55e;
+  color: white;
+}
+
+.btn.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .action-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+</style>
