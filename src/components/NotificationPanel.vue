@@ -218,11 +218,12 @@ const getNotificationIcon = (type: string): Component => {
   position: relative;
   width: 100%;
   max-width: 400px;
-  background: white;
+  background: var(--card-bg);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   z-index: 1;
+  transition: background-color 0.3s ease;
 }
 
 .panel-header {
@@ -230,8 +231,9 @@ const getNotificationIcon = (type: string): Component => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: white;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-bg);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .header-title {
@@ -251,7 +253,7 @@ const getNotificationIcon = (type: string): Component => {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .unread-badge {
@@ -274,14 +276,14 @@ const getNotificationIcon = (type: string): Component => {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
+  background: var(--bg-color);
+  color: var(--text-primary);
 }
 
 .close-btn .icon {
@@ -294,8 +296,9 @@ const getNotificationIcon = (type: string): Component => {
   display: flex;
   padding: 0.5rem 1.25rem;
   gap: 0.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .tab-btn {
@@ -303,7 +306,7 @@ const getNotificationIcon = (type: string): Component => {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -311,14 +314,14 @@ const getNotificationIcon = (type: string): Component => {
 }
 
 .tab-btn:hover {
-  background: white;
-  color: #1e293b;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .tab-btn.active {
-  background: white;
-  color: #3b82f6;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .notification-list {
@@ -375,19 +378,19 @@ const getNotificationIcon = (type: string): Component => {
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .notification-item:hover {
-  background: #f8fafc;
+  background: var(--bg-color);
 }
 
 .notification-item.unread {
-  background: #eff6ff;
+  background: var(--bg-secondary);
 }
 
 .notification-item.unread:hover {
-  background: #dbeafe;
+  background: var(--bg-color);
 }
 
 .notification-icon {
@@ -434,7 +437,7 @@ const getNotificationIcon = (type: string): Component => {
 .notification-message {
   margin: 0 0 0.375rem 0;
   font-size: 0.875rem;
-  color: #1e293b;
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -449,7 +452,7 @@ const getNotificationIcon = (type: string): Component => {
   align-items: center;
   gap: 0.375rem;
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .timestamp .icon {
@@ -471,8 +474,9 @@ const getNotificationIcon = (type: string): Component => {
   display: flex;
   gap: 0.5rem;
   padding: 1rem 1.25rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .footer-btn {
@@ -482,10 +486,10 @@ const getNotificationIcon = (type: string): Component => {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.625rem 1rem;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -493,9 +497,9 @@ const getNotificationIcon = (type: string): Component => {
 }
 
 .footer-btn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-  border-color: #cbd5e1;
+  background: var(--bg-color);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
 }
 
 .footer-btn .icon {

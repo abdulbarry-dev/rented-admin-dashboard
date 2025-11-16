@@ -420,6 +420,10 @@ watch(isCollapsed, (newVal) => {
   .app-sidebar {
     width: 240px;
   }
+
+  .sidebar-header {
+    min-height: 64px;
+  }
 }
 
 /* Mobile styles */
@@ -428,10 +432,16 @@ watch(isCollapsed, (newVal) => {
     transform: translateX(-100%);
     width: 280px;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+    max-width: 85vw;
   }
 
   .app-sidebar.mobile-open {
     transform: translateX(0);
+  }
+
+  .sidebar-header {
+    min-height: 56px;
+    padding: 1rem;
   }
 
   .mobile-close {
@@ -461,17 +471,17 @@ watch(isCollapsed, (newVal) => {
   }
 
   .nav-link {
-    padding: 1rem;
+    padding: 0.875rem 1rem;
   }
 
   .logo-icon {
-    width: 36px;
-    height: 36px;
-    font-size: 1.125rem;
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
   }
 
   .logo-text {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
 }
 </style>

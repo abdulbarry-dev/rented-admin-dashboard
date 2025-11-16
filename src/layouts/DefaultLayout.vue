@@ -173,6 +173,10 @@ IMPLEMENTATION NOTES:
   min-height: 100vh;
   background-color: var(--bg-color);
   transition: background-color 0.3s ease;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
 }
 
 /* MAIN WRAPPER */
@@ -182,16 +186,21 @@ IMPLEMENTATION NOTES:
   flex-direction: column;
   margin-left: 260px; /* Sidebar width - always visible on desktop */
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: calc(100% - 260px);
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .default-layout:has(.app-sidebar.collapsed) .main-wrapper {
   margin-left: 70px;
+  width: calc(100% - 70px);
 }
 
 /* Tablet */
 @media (max-width: 1024px) {
   .main-wrapper {
     margin-left: 240px;
+    width: calc(100% - 240px);
   }
 }
 
@@ -199,6 +208,7 @@ IMPLEMENTATION NOTES:
 @media (max-width: 768px) {
   .main-wrapper {
     margin-left: 0;
+    width: 100%;
   }
 }
 
@@ -210,6 +220,10 @@ IMPLEMENTATION NOTES:
   background-color: var(--bg-color);
   min-height: calc(100vh - 73px); /* Desktop header height */
   transition: background-color 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Tablet */

@@ -154,7 +154,7 @@ const showCloseButton = computed(() => {
 // Content background color from route meta
 const contentStyles = computed(() => {
   return {
-    backgroundColor: route.meta.backgroundColor || '#ffffff'
+    backgroundColor: typeof route.meta.backgroundColor === 'string' ? route.meta.backgroundColor : '#ffffff'
   }
 })
 
