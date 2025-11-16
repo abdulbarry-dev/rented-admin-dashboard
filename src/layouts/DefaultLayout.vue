@@ -19,74 +19,21 @@ LAYOUT RESPONSIBILITIES:
 <template>
   <div class="default-layout">
     <!-- SIDEBAR COMPONENT -->
-    <!--
-    IMPLEMENTATION NOTES:
-    - Display navigation menu with routes based on user role
-    - Show active route highlighting
-    - Support nested menu items with expand/collapse
-    - Display menu icons and badge counts
-    - Collapsible on mobile devices
-    - Persist collapse state in localStorage
-    - Filter menu items based on user permissions
-    -->
     <AppSidebar
-      :collapsed="sidebarCollapsed"
-      @toggle="toggleSidebar"
+      :mobile-open="mobileSidebarOpen"
+      @close-mobile="closeMobileSidebar"
+      @toggle-collapse="handleSidebarCollapse"
     />
 
     <!-- MAIN CONTENT WRAPPER -->
-    <div class="main-wrapper" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+    <div class="main-wrapper">
       <!-- HEADER COMPONENT -->
-      <!--
-      IMPLEMENTATION NOTES:
-      - Display app logo/title
-      - Show current user info (name, avatar, role)
-      - Notification bell with badge count
-      - Quick search functionality
-      - User dropdown menu (profile, settings, logout)
-      - Breadcrumb navigation
-      - Mobile menu toggle button
-      -->
       <AppHeader
         :user="currentUser"
         :notifications-count="unreadNotificationsCount"
-        @toggle-sidebar="toggleSidebar"
         @open-notifications="openNotifications"
+        @toggle-mobile-menu="toggleMobileSidebar"
       />
-
-      <!-- BREADCRUMB NAVIGATION -->
-      <!--
-      IMPLEMENTATION NOTES:
-      - Generate breadcrumbs from route meta
-      - Support custom breadcrumb labels
-      - Clickable breadcrumb items for navigation
-      - Show current page as last item (not clickable)
-      - Hide on mobile devices to save space
-      -->
-      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item">
-            <router-link to="/">
-              <!-- Home icon -->
-              Dashboard
-            </router-link>
-          </li>
-          <li
-            v-for="(crumb, index) in breadcrumbs"
-            :key="index"
-            class="breadcrumb-item"
-            :class="{ active: index === breadcrumbs.length - 1 }"
-          >
-            <router-link
-              v-if="index < breadcrumbs.length - 1"
-              :to="crumb.path"
-            >
-              {{ crumb.label }}
-            </router-link>
-            <span v-else>{{ crumb.label }}</span>
-          </li>
-        </ol>
-      </nav>
 
       <!-- MAIN CONTENT AREA -->
       <!--
@@ -99,55 +46,33 @@ LAYOUT RESPONSIBILITIES:
       - Responsive padding for mobile devices
       -->
       <main class="main-content">
-        <!-- Loading indicator during route changes -->
-        <div v-if="isLoading" class="loading-overlay">
-          <div class="spinner"></div>
-          <p>Loading...</p>
-        </div>
-
-        <!-- Route view with transition -->
+        <!-- Ensure RouterView renders content -->
         <transition name="page-fade" mode="out-in">
-          <router-view v-slot="{ Component }">
-            <component :is="Component" />
-          </router-view>
+          <router-view />
         </transition>
+
+        <!-- Fallback message for empty content -->
+        <div v-if="!route.matched.length" class="empty-content">
+          <p>No content available. Please check your route configuration.</p>
+        </div>
       </main>
 
-      <!-- FOOTER (Optional) -->
+      <!-- NOTIFICATION PANEL (Slide-in from right) -->
       <!--
       IMPLEMENTATION NOTES:
-      - Show copyright information
-      - Display version number
-      - Links to documentation, support
-      - Privacy policy and terms links
+      - Slide-in panel showing notifications
+      - List of unread and recent notifications
+      - Click to mark as read
+      - Click notification to navigate to relevant page
+      - Filter by notification type
+      - "Mark all as read" action
+      - Real-time updates via WebSocket
       -->
-      <footer class="layout-footer">
-        <div class="footer-content">
-          <p>&copy; {{ currentYear }} Rented Admin Dashboard. All rights reserved.</p>
-          <div class="footer-links">
-            <a href="/docs" target="_blank">Documentation</a>
-            <a href="/support" target="_blank">Support</a>
-            <a href="/privacy" target="_blank">Privacy Policy</a>
-          </div>
-        </div>
-      </footer>
+      <NotificationPanel
+        :open="notificationPanelOpen"
+        @close="closeNotifications"
+      />
     </div>
-
-    <!-- NOTIFICATION PANEL (Slide-in from right) -->
-    <!--
-    IMPLEMENTATION NOTES:
-    - Slide-in panel showing notifications
-    - List of unread and recent notifications
-    - Click to mark as read
-    - Click notification to navigate to relevant page
-    - Filter by notification type
-    - "Mark all as read" action
-    - Real-time updates via WebSocket
-    -->
-    <NotificationPanel
-      :open="notificationPanelOpen"
-      @close="closeNotifications"
-    />
   </div>
 </template>
 
@@ -156,29 +81,20 @@ LAYOUT RESPONSIBILITIES:
 //
 // IMPLEMENTATION NOTES:
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-// import { useAuthStore } from '@/stores/auth'
-// import { useNotificationStore } from '@/stores/notifications'
-import AppSidebar from '@/components/AppSidebar.vue'
-import AppHeader from '@/components/AppHeader.vue'
-import NotificationPanel from '@/components/NotificationPanel.vue'
+import AppSidebar from '../components/AppSidebar.vue'
+import AppHeader from '../components/AppHeader.vue'
+import NotificationPanel from '../components/NotificationPanel.vue'
 
 // REACTIVE STATE:
 
-// Sidebar collapse state
-// - Default to false (expanded)
-// - Persist to localStorage
-// - Auto-collapse on mobile devices
-const sidebarCollapsed = ref(false)
-
 // Notification panel state
 const notificationPanelOpen = ref(false)
-
-// Loading state for route transitions
-const isLoading = ref(false)
-
-// Current route
+// Mobile sidebar state
+const mobileSidebarOpen = ref(false)
+// Sidebar collapsed state
+const sidebarCollapsed = ref(false)
 const route = useRoute()
 
 // COMPUTED PROPERTIES:
@@ -202,42 +118,7 @@ const unreadNotificationsCount = computed(() => {
   return 5 // Placeholder
 })
 
-// Generate breadcrumbs from current route
-// - Extract from route meta.breadcrumb
-// - Build hierarchy from parent routes
-const breadcrumbs = computed(() => {
-  // IMPLEMENTATION:
-  // 1. Get all matched routes
-  // 2. Extract breadcrumb from each route meta
-  // 3. Build array of { label, path }
-  // 4. Filter out routes without breadcrumbs
-
-  const crumbs: Array<{ label: string; path: string }> = []
-
-  route.matched.forEach((match) => {
-    if (match.meta.breadcrumb) {
-      crumbs.push({
-        label: match.meta.breadcrumb as string,
-        path: match.path
-      })
-    }
-  })
-
-  return crumbs
-})
-
-// Current year for footer
-const currentYear = computed(() => new Date().getFullYear())
-
 // METHODS:
-
-// Toggle sidebar collapse state
-// - Save state to localStorage
-// - Emit event for animations
-function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-  localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed.value))
-}
 
 // Open notification panel
 function openNotifications() {
@@ -249,71 +130,30 @@ function closeNotifications() {
   notificationPanelOpen.value = false
 }
 
+// Toggle mobile sidebar
+function toggleMobileSidebar() {
+  mobileSidebarOpen.value = !mobileSidebarOpen.value
+}
+
+// Close mobile sidebar
+function closeMobileSidebar() {
+  mobileSidebarOpen.value = false
+}
+
+// Handle sidebar collapse
+function handleSidebarCollapse(collapsed: boolean) {
+  sidebarCollapsed.value = collapsed
+}
+
 // LIFECYCLE HOOKS:
 
 onMounted(() => {
   // INITIALIZATION:
-  // 1. Restore sidebar state from localStorage
-  // 2. Connect to WebSocket for real-time notifications
-  // 3. Check screen size and auto-collapse on mobile
-  // 4. Load initial notification count
-
-  const savedState = localStorage.getItem('sidebarCollapsed')
-  if (savedState !== null) {
-    sidebarCollapsed.value = savedState === 'true'
-  }
-
-  // Auto-collapse on mobile
-  if (window.innerWidth < 768) {
-    sidebarCollapsed.value = true
-  }
+  // 1. Connect to WebSocket for real-time notifications
+  // 2. Load initial notification count
 })
 
-// ROUTE WATCHERS:
-
-// Watch route changes
-// - Show loading state during navigation
-// - Close mobile sidebar after navigation
-// - Update page title
-watch(
-  () => route.path,
-  (newPath) => {
-    // IMPLEMENTATION:
-    // 1. Set loading state to true
-    // 2. Close sidebar on mobile after navigation
-    // 3. Scroll to top of page
-    // 4. Update document title from route meta
-
-    isLoading.value = true
-
-    // Close sidebar on mobile
-    if (window.innerWidth < 768) {
-      sidebarCollapsed.value = true
-    }
-
-    // Scroll to top
-    window.scrollTo(0, 0)
-
-    // Update title
-    document.title = `${route.meta.title || 'Admin'} - Rented Dashboard`
-
-    // Hide loading after a delay (component should be loaded)
-    setTimeout(() => {
-      isLoading.value = false
-    }, 300)
-  }
-)
-
-// RESPONSIVE HANDLING:
-
-// Listen for window resize
-// - Auto-collapse sidebar on mobile
-// - Adjust layout spacing
-window.addEventListener('resize', () => {
-  if (window.innerWidth < 768 && !sidebarCollapsed.value) {
-    sidebarCollapsed.value = true
-  }
-})
+// RESPONSIVE HANDLING removed - sidebar always visible on desktop
 </script>
 
 <style scoped>
@@ -332,6 +172,7 @@ IMPLEMENTATION NOTES:
   display: flex;
   min-height: 100vh;
   background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
 }
 
 /* MAIN WRAPPER */
@@ -339,51 +180,26 @@ IMPLEMENTATION NOTES:
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin-left: 250px; /* Sidebar width */
-  transition: margin-left 0.3s ease;
+  margin-left: 260px; /* Sidebar width - always visible on desktop */
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.main-wrapper.sidebar-collapsed {
-  margin-left: 60px; /* Collapsed sidebar width */
+.default-layout:has(.app-sidebar.collapsed) .main-wrapper {
+  margin-left: 70px;
 }
 
-/* BREADCRUMB NAVIGATION */
-.breadcrumb-nav {
-  padding: 1rem 2rem;
-  background: white;
-  border-bottom: 1px solid var(--border-color);
+/* Tablet */
+@media (max-width: 1024px) {
+  .main-wrapper {
+    margin-left: 240px;
+  }
 }
 
-.breadcrumb {
-  display: flex;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  gap: 0.5rem;
-}
-
-.breadcrumb-item {
-  display: flex;
-  align-items: center;
-}
-
-.breadcrumb-item:not(:last-child)::after {
-  content: '/';
-  margin-left: 0.5rem;
-  color: var(--text-muted);
-}
-
-.breadcrumb-item a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-.breadcrumb-item a:hover {
-  text-decoration: underline;
-}
-
-.breadcrumb-item.active span {
-  color: var(--text-muted);
+/* Mobile */
+@media (max-width: 768px) {
+  .main-wrapper {
+    margin-left: 0;
+  }
 }
 
 /* MAIN CONTENT */
@@ -391,6 +207,25 @@ IMPLEMENTATION NOTES:
   flex: 1;
   padding: 2rem;
   position: relative;
+  background-color: var(--bg-color);
+  min-height: calc(100vh - 73px); /* Desktop header height */
+  transition: background-color 0.3s ease;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .main-content {
+    padding: 1.5rem;
+    min-height: calc(100vh - 64px); /* Tablet header height */
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem;
+    min-height: calc(100vh - 56px); /* Mobile header height */
+  }
 }
 
 /* LOADING OVERLAY */
@@ -435,9 +270,10 @@ IMPLEMENTATION NOTES:
 /* FOOTER */
 .layout-footer {
   padding: 1.5rem 2rem;
-  background: white;
+  background: var(--card-bg);
   border-top: 1px solid var(--border-color);
   margin-top: auto;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .footer-content {
@@ -454,29 +290,34 @@ IMPLEMENTATION NOTES:
 .footer-links a {
   color: var(--text-secondary);
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .footer-links a:hover {
   color: var(--primary-color);
 }
 
-/* RESPONSIVE STYLES */
-@media (max-width: 768px) {
-  .main-wrapper {
-    margin-left: 0;
-  }
+/* EMPTY CONTENT STYLES */
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  color: #94a3b8;
+}
 
-  .breadcrumb-nav {
-    display: none; /* Hide on mobile to save space */
-  }
+.empty-content::before {
+  content: "📋";
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
 
-  .main-content {
-    padding: 1rem;
-  }
-
-  .footer-content {
-    flex-direction: column;
-    gap: 1rem;
-  }
+.empty-content p {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
 }
 </style>

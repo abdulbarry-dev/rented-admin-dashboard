@@ -1,113 +1,315 @@
-// PAGE PURPOSE: Main dashboard with real-time metrics and system overview for admin users
-//
-// MAIN FUNCTIONALITY:
-// - Display key performance indicators (KPIs) at a glance
-// - Show real-time statistics for users, verifications, listings, and transactions
-// - Present financial metrics including daily revenue and growth trends
-// - Monitor system health and platform status
-// - Provide quick access links to common admin actions
-// - Display recent activity feed and alerts
-//
-// UI COMPONENTS:
-// - KPI cards grid (6-8 primary metrics):
-//   * Total users (with growth percentage)
-//   * Pending verifications (with priority count)
-//   * Active listings (online/approved items)
-//   * Ongoing transactions (active purchases/rentals)
-//   * Daily revenue (with comparison to previous day)
-//   * System health status (API uptime, response time)
-// - Revenue trend chart (line chart showing last 30 days)
-// - Recent activity timeline (last 10 admin actions)
-// - Quick action buttons (New Verification, View Reports, User Search)
-// - Alerts/notifications panel (urgent items requiring attention)
-// - Category performance mini-chart (top 5 categories)
-// - User growth sparkline chart
-//
-// DATA REQUIREMENTS:
-// - State: dashboardMetrics, isLoading, lastUpdated, refreshInterval
-// - API endpoints:
-//   * GET /api/admin/dashboard/metrics - Overall KPIs
-//   * GET /api/admin/dashboard/revenue-trend - Revenue time series
-//   * GET /api/admin/dashboard/recent-activity - Activity log
-//   * GET /api/admin/dashboard/alerts - Urgent notifications
-// - Response structure:
-//   {
-//     metrics: {
-//       totalUsers: number,
-//       userGrowth: number (percentage),
-//       pendingVerifications: number,
-//       priorityVerifications: number,
-//       activeListings: number,
-//       ongoingTransactions: number,
-//       dailyRevenue: number,
-//       revenueGrowth: number (percentage),
-//       systemHealth: { status: string, uptime: number, responseTime: number }
-//     },
-//     revenueTrend: [ { date: string, revenue: number } ],
-//     recentActivity: [ { id, action, admin, timestamp } ],
-//     alerts: [ { id, type, message, severity, timestamp } ]
-//   }
-//
-// WORKFLOW:
-// 1. Load dashboard metrics on component mount
-// 2. Display loading skeleton while fetching data
-// 3. Render KPI cards with metrics
-// 4. Initialize real-time updates via WebSocket or polling (every 30 seconds)
-// 5. Update metrics automatically without full page refresh
-// 6. Show visual indicators for changes (up/down arrows, color changes)
-// 7. Handle metric card clicks to navigate to detailed views
-// 8. Display alerts prominently if any critical issues exist
-//
-// REAL-TIME UPDATES:
-// - Auto-refresh metrics every 30 seconds
-// - WebSocket connection for instant updates on critical metrics
-// - Visual notification when data is refreshed (subtle animation)
-// - Manual refresh button for immediate update
-// - Last updated timestamp display
-//
-// METRIC CALCULATIONS:
-// - Growth percentages: Compare current period vs previous period
-// - Daily revenue: Sum of all completed transactions today
-// - System health: Aggregate of API health checks
-// - Pending verifications: Count of unprocessed ID submissions
-// - Priority verifications: Submissions flagged for urgent review
-//
-// INTERACTIVE ELEMENTS:
-// - Click KPI cards to navigate to relevant detail pages:
-//   * Users card → UserList.vue
-//   * Verifications card → VerificationQueue.vue
-//   * Listings card → ItemList.vue
-//   * Transactions card → TransactionList.vue
-//   * Revenue card → RevenueReports.vue
-// - Click chart data points to filter by specific date
-// - Click activity items to view full details
-// - Hover tooltips on metrics for additional context
-//
-// PERFORMANCE OPTIMIZATION:
-// - Lazy load charts (render after initial KPIs load)
-// - Cache metrics data for 30 seconds to reduce API calls
-// - Use virtual scrolling for activity feed if >100 items
-// - Debounce auto-refresh during active user interaction
-//
-// SECURITY CONSIDERATIONS:
-// - Role-based metric visibility (some metrics only for Super Admin)
-// - Audit log all dashboard accesses
-// - Secure WebSocket connections with authentication
-//
-// ERROR HANDLING:
-// - Show error message if metrics fail to load
-// - Fallback to cached data if real-time update fails
-// - Retry logic for failed API calls (max 3 attempts)
-// - Display "Data unavailable" in metric cards on error
-//
-// RESPONSIVE DESIGN:
-// - KPI cards in grid layout (4 columns desktop, 2 tablet, 1 mobile)
-// - Charts stack vertically on mobile
-// - Collapsible activity feed on small screens
-//
-// INTEGRATION POINTS:
-// - Router: Navigate to detail pages from KPI cards
-// - Store: Cache dashboard data for quick re-access
-// - WebSocket: Real-time metric updates
-// - Chart library: Display revenue trends and category performance
-// - Notification system: Show alerts and urgent items
+<template>
+  <div class="dashboard-overview">
+    <!-- KPI Cards Section -->
+    <section class="kpi-cards">
+      <div v-for="kpi in kpiMetrics" :key="kpi.title" class="kpi-card">
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-title">{{ kpi.title }}</div>
+        <div class="kpi-growth" :class="{ positive: kpi.growth > 0, negative: kpi.growth < 0 }">
+          <ArrowUpIcon v-if="kpi.growth > 0" class="growth-icon" />
+          <ArrowDownIcon v-else-if="kpi.growth < 0" class="growth-icon" />
+          {{ Math.abs(kpi.growth) }}%
+        </div>
+      </div>
+    </section>
+
+    <!-- Revenue Trend Chart -->
+    <section class="revenue-chart">
+      <h2>Revenue Trend</h2>
+      <line-chart
+        :labels="revenueData.labels"
+        :datasets="revenueData.datasets"
+        :height="300"
+      />
+    </section>
+
+    <!-- Recent Activity Timeline -->
+    <section class="recent-activity">
+      <h2>Recent Activity</h2>
+      <ul>
+        <li v-for="activity in recentActivity" :key="activity.id">
+          <span class="activity-action">{{ activity.action }}</span>
+          <span class="activity-admin">by {{ activity.admin }}</span>
+          <span class="activity-timestamp">{{ activity.timestamp }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Alerts Section -->
+    <section class="alerts">
+      <h2>Alerts</h2>
+      <div v-for="alert in alerts" :key="alert.id" class="alert" :class="alert.severity">
+        <p>{{ alert.message }}</p>
+        <span class="alert-timestamp">{{ alert.timestamp }}</span>
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/solid'
+import LineChart from '@/components/charts/LineChart.vue'
+
+const kpiMetrics = ref([
+  { title: 'Total Users', value: 1200, growth: 5 },
+  { title: 'Pending Verifications', value: 45, growth: -10 },
+  { title: 'Active Listings', value: 320, growth: 2 },
+  { title: 'Ongoing Transactions', value: 75, growth: 8 },
+  { title: 'Daily Revenue', value: '$1,200', growth: 15 },
+  { title: 'System Health', value: 'Good', growth: 0 }
+])
+
+const revenueData = ref({
+  labels: ['2025-11-01', '2025-11-02', '2025-11-03', '2025-11-04', '2025-11-05'],
+  datasets: [
+    {
+      label: 'Revenue',
+      data: [1000, 1200, 900, 1100, 1300],
+      borderColor: '#3498db',
+      backgroundColor: 'rgba(52, 152, 219, 0.2)',
+      fill: true,
+      tension: 0.4
+    }
+  ]
+})
+
+const recentActivity = ref([
+  { id: 1, action: 'User Registered', admin: 'Admin1', timestamp: '2 mins ago' },
+  { id: 2, action: 'Verification Approved', admin: 'Admin2', timestamp: '10 mins ago' },
+  { id: 3, action: 'Item Listed', admin: 'Admin3', timestamp: '1 hour ago' }
+])
+
+const alerts = ref([
+  { id: 1, message: 'Server downtime detected', severity: 'critical', timestamp: '5 mins ago' },
+  { id: 2, message: 'High priority verification pending', severity: 'warning', timestamp: '15 mins ago' }
+])
+</script>
+
+<style scoped>
+.dashboard-overview {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.kpi-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.kpi-card {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  text-align: center;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-color);
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.kpi-title {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.kpi-growth {
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-weight: 600;
+}
+
+.kpi-growth.positive {
+  color: var(--success-color);
+}
+
+.kpi-growth.negative {
+  color: var(--error-color);
+}
+
+.growth-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.revenue-chart,
+.recent-activity,
+.alerts {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.revenue-chart h2,
+.recent-activity h2,
+.alerts h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.recent-activity ul {
+  list-style: none;
+}
+
+.recent-activity li {
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.recent-activity li:last-child {
+  border-bottom: none;
+}
+
+.activity-action {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.activity-admin {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.activity-timestamp {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-left: auto;
+}
+
+.alert {
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.875rem;
+  position: relative;
+}
+
+.alert:last-child {
+  margin-bottom: 0;
+}
+
+.alert p {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.alert.critical {
+  background: #fef2f2;
+  border-left: 4px solid var(--error-color);
+  color: #991b1b;
+}
+
+.alert.warning {
+  background: #fffbeb;
+  border-left: 4px solid var(--warning-color);
+  color: #92400e;
+}
+
+.alert-timestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Tablet styles */
+@media (max-width: 1024px) {
+  .kpi-cards {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .kpi-value {
+    font-size: 1.5rem;
+  }
+
+  .revenue-chart,
+  .recent-activity,
+  .alerts {
+    padding: 1.25rem;
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .dashboard-overview {
+    gap: 1rem;
+  }
+
+  .kpi-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .kpi-card {
+    padding: 1rem;
+  }
+
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+
+  .kpi-title {
+    font-size: 0.75rem;
+  }
+
+  .kpi-growth {
+    font-size: 0.75rem;
+  }
+
+  .revenue-chart,
+  .recent-activity,
+  .alerts {
+    padding: 1rem;
+  }
+
+  .revenue-chart h2,
+  .recent-activity h2,
+  .alerts h2 {
+    font-size: 1rem;
+  }
+
+  .recent-activity li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .activity-timestamp {
+    margin-left: 0;
+  }
+
+  .alert {
+    padding: 0.875rem;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .kpi-cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

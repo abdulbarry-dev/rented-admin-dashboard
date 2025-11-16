@@ -67,7 +67,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
       padding: 12,
       displayColors: true,
       callbacks: {
-        label: function (context: any) {
+        label: function (context: { dataset: { label?: string }, parsed: { y: number | null } }) {
           let label = context.dataset.label || ''
           if (label) {
             label += ': '

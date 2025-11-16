@@ -49,8 +49,8 @@ LAYOUT RESPONSIBILITIES:
       -->
       <div class="auth-branding">
         <div class="auth-logo">
-          <!-- Logo image or icon -->
-          <img src="/logo.svg" alt="Rented Logo" />
+          <!-- Logo image or icon
+          <img src="/logo.svg" alt="Rented Logo" /> -->
         </div>
         <h1 class="auth-title">Rented Admin</h1>
         <p class="auth-subtitle">Secure Admin Portal</p>
