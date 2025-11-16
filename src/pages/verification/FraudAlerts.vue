@@ -202,9 +202,9 @@ const alerts = ref<Alert[]>([
     id: 'FA001',
     severity: 'critical',
     type: 'Document Tampering Detected',
-    description: 'Multiple alterations detected in passport document with AI confidence score of 98%',
+    description: 'Multiple alterations detected in National ID document with AI confidence score of 98%',
     user: { name: 'John Suspicious', email: 'john.sus@example.com' },
-    documentType: 'Passport',
+    documentType: 'National ID',
     riskScore: 95,
     detectedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     indicators: [
@@ -220,7 +220,7 @@ const alerts = ref<Alert[]>([
     type: 'Identity Theft Suspected',
     description: 'Face match confidence below threshold, possible stolen identity',
     user: { name: 'Jane Doe', email: 'jane@example.com' },
-    documentType: 'Driver License',
+    documentType: 'National ID',
     riskScore: 92,
     detectedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     indicators: [
@@ -250,7 +250,7 @@ const alerts = ref<Alert[]>([
     type: 'Duplicate Document Submission',
     description: 'Same document submitted by multiple user accounts',
     user: { name: 'Alice Wonder', email: 'alice@example.com' },
-    documentType: 'Passport',
+    documentType: 'National ID',
     riskScore: 85,
     detectedAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
     indicators: [
@@ -265,7 +265,7 @@ const alerts = ref<Alert[]>([
     type: 'Quality Issues Detected',
     description: 'Document quality below acceptable threshold, possible intentional obfuscation',
     user: { name: 'Charlie Brown', email: 'charlie@example.com' },
-    documentType: 'Driver License',
+    documentType: 'National ID',
     riskScore: 65,
     detectedAt: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
     indicators: [
@@ -305,7 +305,7 @@ const refreshAlerts = () => {
 }
 
 const viewDetails = (id: string) => {
-  router.push(`/verification/detail/${id}`)
+  router.push(`/verification/${id}`)
 }
 
 const investigateAlert = (id: string) => {

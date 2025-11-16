@@ -3,11 +3,12 @@ import { useDark, useToggle } from '@vueuse/core'
 
 export const useThemeStore = defineStore('theme', () => {
   const isDark = useDark({
-    storageKey: 'theme',
+    storageKey: 'vueuse-color-scheme',
+    selector: 'html',
+    attribute: 'class',
     valueDark: 'dark',
-    valueLight: 'light',
+    valueLight: '', // Remove class for light mode
   })
-
 
   const toggleTheme = useToggle(isDark)
 

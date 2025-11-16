@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useThemeStore } from '@/stores/theme'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import BlankLayout from '@/layouts/BlankLayout.vue'
 
 const route = useRoute()
-const themeStore = useThemeStore()
-const { isDark } = storeToRefs(themeStore)
 
 const layoutComponent = computed(() => {
   const layout = route.meta.layout || 'default'
@@ -26,7 +22,7 @@ const layoutComponent = computed(() => {
 </script>
 
 <template>
-  <div :class="{ dark: isDark }" class="app-root">
+  <div class="app-root">
     <component :is="layoutComponent" />
   </div>
 </template>

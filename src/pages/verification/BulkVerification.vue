@@ -9,10 +9,10 @@
     <div class="upload-section">
       <div class="upload-area" @dragover.prevent @drop="handleDrop">
         <ArrowUpTrayIcon class="upload-icon" />
-        <h3>Upload Verification Batch</h3>
-        <p>Drag and drop CSV file or click to browse</p>
-        <input type="file" accept=".csv,.xlsx" @change="handleFileUpload" hidden ref="fileInput" />
-        <button class="btn primary" @click="$refs.fileInput.click()">Select File</button>
+        <h3>Upload National ID Images</h3>
+        <p>Drag and drop images (.png, .jpg, .jpeg) or click to browse</p>
+        <input type="file" accept="image/png,image/jpeg,image/jpg" multiple @change="handleFileUpload" hidden ref="fileInput" />
+        <button class="btn primary" @click="fileInput.value?.click()">Select Images</button>
       </div>
     </div>
 
@@ -117,8 +117,8 @@
     <!-- Empty State -->
     <div v-else class="empty-state">
       <DocumentTextIcon class="empty-icon" />
-      <h3>No batch loaded</h3>
-      <p>Upload a CSV file to start bulk verification processing</p>
+      <h3>No images loaded</h3>
+      <p>Upload National ID images to start bulk verification processing</p>
     </div>
   </div>
 </template>
@@ -149,7 +149,7 @@ interface BatchItem {
   rejectionReason?: string
 }
 
-const fileInput = ref<HTMLInputElement | null>(null)
+const fileInput = ref<InstanceType<typeof HTMLInputElement> | null>(null)
 const batchItems = ref<BatchItem[]>([])
 
 const approved = computed(() => batchItems.value.filter(i => i.status === 'approved').length)
@@ -177,7 +177,7 @@ const loadMockData = () => {
     name: `User ${i + 1}`,
     email: `user${i + 1}@example.com`,
     photo: null,
-    documentType: ['Passport', 'Driver License', 'National ID'][i % 3],
+    documentType: 'National ID',
     riskScore: Math.floor(Math.random() * 100),
     submittedAt: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
     status: 'pending'

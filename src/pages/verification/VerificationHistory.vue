@@ -216,7 +216,7 @@ const historyRecords = ref(
       email: `user${i + 1}@example.com`,
       photo: null
     },
-    documentType: ['Passport', 'Driver License', 'National ID'][i % 3],
+    documentType: 'National ID',
     submittedAt: new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
     processedAt: new Date(Date.now() - Math.random() * 86400000 * 25).toISOString(),
     verifier: `Admin ${(i % 5) + 1}`,
@@ -278,7 +278,7 @@ const formatDate = (date: string) => new Date(date).toLocaleDateString()
 const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 const viewDetails = (id: string) => {
-  router.push(`/verification/detail/${id}`)
+  router.push(`/verification/${id}`)
 }
 
 const downloadRecord = (id: string) => {

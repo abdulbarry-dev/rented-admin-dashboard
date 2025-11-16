@@ -8,7 +8,12 @@ import 'vue-awesome-paginate/dist/style.css'
 
 const app = createApp(App)
 
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
+
+// Initialize theme store early to apply theme before mounting
+import { useThemeStore } from './stores/theme'
+useThemeStore() // Initialize the store to apply saved theme
 
 app.mount('#app')

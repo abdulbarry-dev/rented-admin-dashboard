@@ -27,9 +27,46 @@
             v-for="item in mainMenuItems"
             :key="item.name"
             class="nav-item"
-            :class="{ active: isActive(item.route) }"
+            :class="{ active: isActive(item.route), 'has-children': item.children }"
           >
-            <router-link :to="item.route" class="nav-link" @click="closeMobileSidebar">
+            <!-- Parent item with children -->
+            <template v-if="item.children">
+              <div class="nav-link parent-link" @click="toggleExpand(item.name)">
+                <component :is="item.icon" class="nav-icon" />
+                <transition name="fade">
+                  <span v-if="!isCollapsed" class="nav-text">{{ item.name }}</span>
+                </transition>
+                <transition name="fade">
+                  <span v-if="item.badge && !isCollapsed" class="badge">{{ item.badge }}</span>
+                </transition>
+                <transition name="fade">
+                  <ChevronDownIcon
+                    v-if="!isCollapsed"
+                    class="expand-icon"
+                    :class="{ 'expanded': isExpanded(item.name) }"
+                  />
+                </transition>
+              </div>
+              <!-- Submenu -->
+              <transition name="submenu">
+                <ul v-if="isExpanded(item.name) && !isCollapsed" class="submenu">
+                  <li
+                    v-for="child in item.children"
+                    :key="child.name"
+                    class="submenu-item"
+                    :class="{ active: route.path === child.route }"
+                  >
+                    <router-link :to="child.route" class="submenu-link" @click="closeMobileSidebar">
+                      <component :is="child.icon" class="submenu-icon" />
+                      <span class="submenu-text">{{ child.name }}</span>
+                      <span v-if="child.badge" class="badge">{{ child.badge }}</span>
+                    </router-link>
+                  </li>
+                </ul>
+              </transition>
+            </template>
+            <!-- Regular link without children -->
+            <router-link v-else :to="item.route" class="nav-link" @click="closeMobileSidebar">
               <component :is="item.icon" class="nav-icon" />
               <transition name="fade">
                 <span v-if="!isCollapsed" class="nav-text">{{ item.name }}</span>
@@ -93,7 +130,12 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  ClockIcon,
+  DocumentTextIcon,
+  QueueListIcon,
+  ExclamationTriangleIcon,
+  ChevronDownIcon
 } from '@heroicons/vue/24/outline'
 
 interface MenuItem {
@@ -101,6 +143,7 @@ interface MenuItem {
   route: string
   icon: Component
   badge?: number
+  children?: MenuItem[]
 }
 
 defineProps<{
@@ -114,11 +157,23 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const isCollapsed = ref(false)
+const expandedItems = ref<string[]>([])
 
 // Main menu items
 const mainMenuItems = ref<MenuItem[]>([
   { name: 'Dashboard', route: '/', icon: HomeIcon },
-  { name: 'Verification', route: '/verification/queue', icon: ShieldCheckIcon, badge: 5 },
+  {
+    name: 'Verification',
+    route: '/verification/queue',
+    icon: ShieldCheckIcon,
+    badge: 5,
+    children: [
+      { name: 'Queue', route: '/verification/queue', icon: ClockIcon, badge: 5 },
+      { name: 'History', route: '/verification/history', icon: DocumentTextIcon },
+      { name: 'Bulk Actions', route: '/verification/bulk', icon: QueueListIcon },
+      { name: 'Fraud Alerts', route: '/verification/fraud', icon: ExclamationTriangleIcon, badge: 8 }
+    ]
+  },
   { name: 'Analytics', route: '/analytics', icon: ChartBarIcon }
 ])
 
@@ -148,11 +203,28 @@ const closeMobileSidebar = () => {
   emit('close-mobile')
 }
 
+const toggleExpand = (itemName: string) => {
+  const index = expandedItems.value.indexOf(itemName)
+  if (index > -1) {
+    expandedItems.value.splice(index, 1)
+  } else {
+    expandedItems.value.push(itemName)
+  }
+}
+
+const isExpanded = (itemName: string) => {
+  return expandedItems.value.includes(itemName)
+}
+
 // Load collapse state from localStorage
 onMounted(() => {
   const saved = localStorage.getItem('sidebar-collapsed')
   if (saved) {
     isCollapsed.value = JSON.parse(saved)
+  }
+  // Auto-expand verification menu if on verification page
+  if (route.path.startsWith('/verification')) {
+    expandedItems.value.push('Verification')
   }
 })
 
@@ -483,5 +555,86 @@ watch(isCollapsed, (newVal) => {
   .logo-text {
     font-size: 1.125rem;
   }
+}
+
+/* Parent link with children */
+.parent-link {
+  cursor: pointer;
+}
+
+.expand-icon {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* Submenu styles */
+.submenu {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0.5rem 0;
+  overflow: hidden;
+}
+
+.submenu-item {
+  margin: 0.125rem 0;
+}
+
+.submenu-link {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 0.875rem 0.625rem 3rem;
+  text-decoration: none;
+  color: var(--sidebar-text);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.submenu-link:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-active);
+}
+
+.submenu-item.active .submenu-link {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-text-active);
+  font-weight: 600;
+}
+
+.submenu-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  stroke-width: 2;
+}
+
+.submenu-text {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Submenu transition */
+.submenu-enter-active,
+.submenu-leave-active {
+  transition: all 0.3s ease;
+}
+
+.submenu-enter-from,
+.submenu-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.submenu-enter-to,
+.submenu-leave-from {
+  max-height: 300px;
+  opacity: 1;
 }
 </style>
