@@ -589,7 +589,12 @@ const bulkFlag = () => {
 }
 
 const viewDetails = (id: string) => {
-  router.push(`/verification/${id}`)
+  const submission = allSubmissions.value.find(s => s.id === id)
+  router.push({
+    name: 'verification-detail',
+    params: { id },
+    state: { verification: submission }
+  })
 }
 
 const quickApprove = (submission: Submission) => {

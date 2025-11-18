@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CheckBadgeIcon } from '@heroicons/vue/24/outline'
+import { VueAwesomePaginate } from 'vue-awesome-paginate'
 import type { Item } from './ItemCard.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
@@ -10,6 +11,8 @@ interface Props {
   loading?: boolean
   currentPage: number
   totalPages: number
+  totalItems: number
+  itemsPerPage: number
 }
 
 interface Emits {
@@ -18,11 +21,14 @@ interface Emits {
   (e: 'approve', itemId: string | number): void
   (e: 'reject', itemId: string | number): void
   (e: 'page-change', page: number): void
+  (e: 'items-per-page-change', value: number): void
   (e: 'select', itemId: string | number): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  loading: false
+  loading: false,
+  totalItems: 0,
+  itemsPerPage: 12
 })
 
 const emit = defineEmits<Emits>()
@@ -35,23 +41,6 @@ const getStatusVariant = (status: string): 'success' | 'warning' | 'info' | 'dan
     rejected: 'danger'
   }
   return statusMap[status] || 'default'
-}
-
-const getPageNumbers = () => {
-  const pages = []
-  const maxVisible = 5
-  let start = Math.max(1, props.currentPage - Math.floor(maxVisible / 2))
-  const end = Math.min(props.totalPages, start + maxVisible - 1)
-
-  if (end - start + 1 < maxVisible) {
-    start = Math.max(1, end - maxVisible + 1)
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-
-  return pages
 }
 </script>
 
@@ -317,40 +306,219 @@ const getPageNumbers = () => {
     </div>
 
     <!-- Pagination -->
-    <div v-if="!loading && items.length > 0" class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-      <div class="text-sm text-slate-600 dark:text-slate-400">
-        Page {{ currentPage }} of {{ totalPages }}
+    <div v-if="!loading && items.length > 0 && totalItems > itemsPerPage" class="pagination">
+      <div class="pagination-info">
+        <span>
+          Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }}
+          to {{ Math.min(currentPage * itemsPerPage, totalItems) }}
+          of {{ totalItems }} results
+        </span>
       </div>
-      <div class="flex items-center gap-2">
-        <BaseButton
-          variant="outline"
-          size="sm"
-          @click="emit('page-change', currentPage - 1)"
-          :disabled="currentPage === 1"
+      <vue-awesome-paginate
+        :total-items="totalItems"
+        :items-per-page="itemsPerPage"
+        :max-pages-shown="5"
+        :model-value="currentPage"
+        @update:model-value="emit('page-change', $event)"
+      />
+      <div class="pagination-actions">
+        <select
+          :value="itemsPerPage"
+          @change="emit('items-per-page-change', Number(($event.target as HTMLSelectElement).value))"
+          class="items-per-page"
         >
-          Previous
-        </BaseButton>
-        <button
-          v-for="page in getPageNumbers()"
-          :key="page"
-          @click="emit('page-change', page)"
-          class="px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200"
-          :class="{
-            'bg-blue-600 dark:bg-blue-500 text-white': page === currentPage,
-            'border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700': page !== currentPage
-          }"
-        >
-          {{ page }}
-        </button>
-        <BaseButton
-          variant="outline"
-          size="sm"
-          @click="emit('page-change', currentPage + 1)"
-          :disabled="currentPage === totalPages"
-        >
-          Next
-        </BaseButton>
+          <option :value="12">12 per page</option>
+          <option :value="24">24 per page</option>
+          <option :value="50">50 per page</option>
+        </select>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-top: 1px solid rgb(226 232 240 / 1);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+:global(.dark) .pagination {
+  border-color: rgb(51 65 85 / 1);
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: rgb(100 116 139 / 1);
+  flex-shrink: 0;
+}
+
+:global(.dark) .pagination-info {
+  color: rgb(148 163 184 / 1);
+}
+
+.pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.items-per-page {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240 / 1);
+  background: rgb(248 250 252 / 1);
+  color: rgb(15 23 42 / 1);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+:global(.dark) .items-per-page {
+  border-color: rgb(51 65 85 / 1);
+  background: rgb(15 23 42 / 1);
+  color: rgb(248 250 252 / 1);
+}
+
+.items-per-page:focus {
+  outline: none;
+  border-color: rgb(59 130 246 / 1);
+}
+
+.pagination :deep(.pagination-container) {
+  display: flex;
+  column-gap: 0.5rem;
+  align-items: center;
+}
+
+.pagination :deep(.paginate-buttons) {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  background-color: rgb(248 250 252 / 1);
+  border: 1px solid rgb(226 232 240 / 1);
+  color: rgb(15 23 42 / 1);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+:global(.dark) .pagination :deep(.paginate-buttons) {
+  background-color: rgb(15 23 42 / 1);
+  border-color: rgb(51 65 85 / 1);
+  color: rgb(248 250 252 / 1);
+}
+
+.pagination :deep(.paginate-buttons:hover) {
+  background-color: rgb(241 245 249 / 1);
+  border-color: rgb(59 130 246 / 1);
+}
+
+:global(.dark) .pagination :deep(.paginate-buttons:hover) {
+  background-color: rgb(30 41 59 / 1);
+}
+
+.pagination :deep(.active-page) {
+  background-color: rgb(59 130 246 / 1) !important;
+  border-color: rgb(59 130 246 / 1) !important;
+  color: white !important;
+}
+
+.pagination :deep(.back-button),
+.pagination :deep(.next-button) {
+  background-color: rgb(248 250 252 / 1);
+  border: 1px solid rgb(226 232 240 / 1);
+  color: rgb(15 23 42 / 1);
+  font-weight: 600;
+  min-width: 80px;
+}
+
+:global(.dark) .pagination :deep(.back-button),
+:global(.dark) .pagination :deep(.next-button) {
+  background-color: rgb(15 23 42 / 1);
+  border-color: rgb(51 65 85 / 1);
+  color: rgb(248 250 252 / 1);
+}
+
+.pagination :deep(.back-button:hover),
+.pagination :deep(.next-button:hover) {
+  background-color: rgb(241 245 249 / 1);
+  border-color: rgb(59 130 246 / 1);
+}
+
+:global(.dark) .pagination :deep(.back-button:hover),
+:global(.dark) .pagination :deep(.next-button:hover) {
+  background-color: rgb(30 41 59 / 1);
+}
+
+.pagination :deep(.back-button[disabled]),
+.pagination :deep(.next-button[disabled]) {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: rgb(241 245 249 / 1);
+}
+
+:global(.dark) .pagination :deep(.back-button[disabled]),
+:global(.dark) .pagination :deep(.next-button[disabled]) {
+  background-color: rgb(30 41 59 / 1);
+}
+
+.pagination :deep(.back-button[disabled]:hover),
+.pagination :deep(.next-button[disabled]:hover) {
+  background-color: rgb(241 245 249 / 1);
+  border-color: rgb(226 232 240 / 1);
+}
+
+:global(.dark) .pagination :deep(.back-button[disabled]:hover),
+:global(.dark) .pagination :deep(.next-button[disabled]:hover) {
+  background-color: rgb(30 41 59 / 1);
+  border-color: rgb(51 65 85 / 1);
+}
+
+.pagination :deep(.break-view) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(100 116 139 / 1);
+  font-size: 0.875rem;
+  padding: 0 0.25rem;
+}
+
+:global(.dark) .pagination :deep(.break-view) {
+  color: rgb(148 163 184 / 1);
+}
+
+@media (max-width: 768px) {
+  .pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .pagination-info {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+
+  .pagination :deep(.pagination-container) {
+    order: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pagination-actions {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .items-per-page {
+    width: 100%;
+  }
+}
+</style>

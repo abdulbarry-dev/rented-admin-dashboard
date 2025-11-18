@@ -19,7 +19,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 const router = useRouter()
 const loading = ref(false)
 const currentPage = ref(1)
-const itemsPerPage = 12
+const itemsPerPage = ref(12)
 
 // Filters
 const filters = ref<Filters>({
@@ -308,12 +308,12 @@ const filteredItems = computed(() => {
 
 // Paginated items
 const paginatedItems = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  const end = start + itemsPerPage
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
   return filteredItems.value.slice(start, end)
 })
 
-const totalPages = computed(() => Math.ceil(filteredItems.value.length / itemsPerPage))
+const totalPages = computed(() => Math.ceil(filteredItems.value.length / itemsPerPage.value))
 
 // Stats
 const stats = computed(() => ({
@@ -370,6 +370,11 @@ const clearFilters = () => {
 const handlePageChange = (page: number) => {
   currentPage.value = page
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const handleItemsPerPageChange = (value: number) => {
+  itemsPerPage.value = value
+  currentPage.value = 1 // Reset to first page when changing items per page
 }
 
 const handleViewItem = (itemId: string | number) => {
@@ -481,8 +486,11 @@ const exportItems = () => {
       :loading="loading"
       :current-page="currentPage"
       :total-pages="totalPages"
+      :total-items="filteredItems.length"
+      :items-per-page="itemsPerPage"
       @view="handleViewItem"
       @page-change="handlePageChange"
+      @items-per-page-change="handleItemsPerPageChange"
     />
   </div>
 </template>

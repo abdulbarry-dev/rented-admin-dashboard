@@ -160,7 +160,14 @@
       </div>
 
       <!-- Pagination -->
-      <div class="pagination">
+      <div v-if="filteredHistory.length > pagination.itemsPerPage" class="pagination">
+        <div class="pagination-info">
+          <span>
+            Showing {{ ((pagination.currentPage - 1) * pagination.itemsPerPage) + 1 }}
+            to {{ Math.min(pagination.currentPage * pagination.itemsPerPage, filteredHistory.length) }}
+            of {{ filteredHistory.length }} results
+          </span>
+        </div>
         <vue-awesome-paginate
           :total-items="filteredHistory.length"
           :items-per-page="pagination.itemsPerPage"
@@ -168,6 +175,13 @@
           v-model="pagination.currentPage"
           :on-click="onPageChange"
         />
+        <div class="pagination-actions">
+          <select v-model.number="pagination.itemsPerPage" class="items-per-page">
+            <option :value="10">10 per page</option>
+            <option :value="25">25 per page</option>
+            <option :value="50">50 per page</option>
+          </select>
+        </div>
       </div>
     </div>
   </div>
@@ -278,7 +292,30 @@ const formatDate = (date: string) => new Date(date).toLocaleDateString()
 const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 const viewDetails = (id: string) => {
-  router.push(`/verification/${id}`)
+  // Find the full record to pass to the detail page
+  const record = historyRecords.value.find(r => r.id === id)
+  if (record) {
+    router.push({
+      name: 'verification-detail',
+      params: { id },
+      state: {
+        verification: {
+          id: record.id,
+          status: record.status,
+          submittedAt: record.submittedAt,
+          userName: record.user.name,
+          userEmail: record.user.email,
+          userPhoto: record.user.photo,
+          documentType: record.documentType,
+          riskScore: record.status === 'approved' ? 25 : record.status === 'rejected' ? 75 : 50,
+          verifiedBy: record.verifier,
+          verifiedAt: record.processedAt
+        }
+      }
+    })
+  } else {
+    router.push(`/verification/${id}`)
+  }
 }
 
 const downloadRecord = (id: string) => {
@@ -633,19 +670,51 @@ const exportHistory = () => {
 
 .pagination {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.items-per-page {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.items-per-page:focus {
+  outline: none;
+  border-color: var(--primary-color);
 }
 
 .pagination :deep(.pagination-container) {
+  display: flex;
   column-gap: 0.5rem;
+  align-items: center;
 }
 
 .pagination :deep(.paginate-buttons) {
-  height: 38px;
-  width: 38px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0 0.5rem;
   border-radius: var(--radius-md);
   cursor: pointer;
   background-color: var(--bg-color);
@@ -653,10 +722,12 @@ const exportHistory = () => {
   color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .pagination :deep(.paginate-buttons:hover) {
   background-color: var(--bg-secondary);
+  border-color: var(--primary-color);
 }
 
 .pagination :deep(.active-page) {
@@ -670,18 +741,36 @@ const exportHistory = () => {
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 600;
+  min-width: 80px;
 }
 
 .pagination :deep(.back-button:hover),
 .pagination :deep(.next-button:hover) {
   background-color: var(--bg-secondary);
+  border-color: var(--primary-color);
 }
 
 .pagination :deep(.back-button[disabled]),
 .pagination :deep(.next-button[disabled]) {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  background-color: var(--bg-secondary);
+}
+
+.pagination :deep(.back-button[disabled]:hover),
+.pagination :deep(.next-button[disabled]:hover) {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.pagination :deep(.break-view) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  padding: 0 0.25rem;
 }
 
 @media (max-width: 768px) {
@@ -709,6 +798,33 @@ const exportHistory = () => {
   .history-table th,
   .history-table td {
     padding: 0.75rem;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .pagination-info {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+
+  .pagination :deep(.pagination-container) {
+    order: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pagination-actions {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .items-per-page {
+    width: 100%;
   }
 }
 </style>

@@ -467,57 +467,109 @@ const fetchVerificationData = async () => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 800))
 
-    // Mock data - replace with actual API call
-    // Simulate different statuses based on ID
-    const statusMap: Record<string, 'pending' | 'approved' | 'rejected'> = {
-      'VER-2024-001': 'pending',
-      'VER-2024-002': 'pending',
-      'VER-2024-003': 'approved',
-      'VER-2024-004': 'rejected',
-      'FA001': 'pending',
-      'FA002': 'pending'
-    }
+    // Try to get verification from router state first
+    const stateVerification = window.history.state.verification
 
-    const status = statusMap[verificationId] || 'pending'
-
-    verification.value = {
-      id: verificationId,
-      status: status,
-      submittedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-      verifiedBy: status !== 'pending' ? 'Admin Smith' : undefined,
-      verifiedAt: status !== 'pending' ? new Date(Date.now() - 3600000).toISOString() : undefined,
-      rejectionReason: status === 'rejected' ? 'Document Unclear/Blurry' : undefined,
-      rejectionDetails: status === 'rejected' ? 'The photo quality is too low to verify the information.' : undefined,
-      user: {
-        name: 'Sarah Johnson',
-        email: 'sarah.j@example.com',
-        phone: '+1 234 567 8900',
-        photo: null,
-        registrationDate: '2024-01-15',
-        country: 'United States'
-      },
-      documents: [
-        {
-          type: 'National ID',
-          side: 'Front',
-          url: 'https://via.placeholder.com/600x400/3b82f6/ffffff?text=National+ID+Front'
+    if (stateVerification) {
+      // Map the submission data from queue to verification detail format
+      verification.value = {
+        id: stateVerification.id,
+        status: stateVerification.status || 'pending',
+        submittedAt: stateVerification.submittedAt,
+        verifiedBy: stateVerification.verifiedBy || undefined,
+        verifiedAt: stateVerification.verifiedAt || undefined,
+        rejectionReason: stateVerification.rejectionReason || undefined,
+        rejectionDetails: stateVerification.rejectionDetails || undefined,
+        user: {
+          name: stateVerification.userName,
+          email: stateVerification.userEmail,
+          phone: `+1 ${Math.floor(Math.random() * 900 + 100)} ${Math.floor(Math.random() * 900 + 100)} ${Math.floor(Math.random() * 9000 + 1000)}`,
+          photo: stateVerification.userPhoto,
+          registrationDate: new Date(Date.now() - Math.floor(Math.random() * 365) * 24 * 3600000).toISOString().split('T')[0] || '',
+          country: 'United States'
         },
-        {
-          type: 'National ID',
-          side: 'Back',
-          url: 'https://via.placeholder.com/600x400/6366f1/ffffff?text=National+ID+Back'
-        }
-      ],
-      riskScore: 25,
-      fraudIndicators: [],
-      checklistItems: {
-        nameMatch: true,
-        photoMatch: true,
-        notExpired: true,
-        authentic: true,
-        readable: true
-      },
-      previousAttempts: []
+        documents: [
+          {
+            type: stateVerification.documentType || 'National ID',
+            side: 'Front',
+            url: 'https://via.placeholder.com/600x400/3b82f6/ffffff?text=National+ID+Front'
+          },
+          {
+            type: stateVerification.documentType || 'National ID',
+            side: 'Back',
+            url: 'https://via.placeholder.com/600x400/6366f1/ffffff?text=National+ID+Back'
+          }
+        ],
+        riskScore: stateVerification.riskScore || 25,
+        fraudIndicators: stateVerification.riskScore > 60 ? [
+          {
+            type: 'High Risk Score',
+            description: 'Document verification flagged as high risk',
+            severity: 'high' as const
+          }
+        ] : [],
+        checklistItems: {
+          nameMatch: true,
+          photoMatch: true,
+          notExpired: true,
+          authentic: stateVerification.riskScore < 60,
+          readable: true
+        },
+        previousAttempts: []
+      }
+    } else {
+      // Fallback to mock data if no state is available
+      const statusMap: Record<string, 'pending' | 'approved' | 'rejected'> = {
+        'VER-2024-001': 'pending',
+        'VER-2024-002': 'pending',
+        'VER-2024-003': 'approved',
+        'VER-2024-004': 'rejected',
+        'FA001': 'pending',
+        'FA002': 'pending'
+      }
+
+      const status = statusMap[verificationId] || 'pending'
+      const userName = `User ${verificationId.slice(-3)}`
+
+      verification.value = {
+        id: verificationId,
+        status: status,
+        submittedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+        verifiedBy: status !== 'pending' ? 'Admin Smith' : undefined,
+        verifiedAt: status !== 'pending' ? new Date(Date.now() - 3600000).toISOString() : undefined,
+        rejectionReason: status === 'rejected' ? 'Document Unclear/Blurry' : undefined,
+        rejectionDetails: status === 'rejected' ? 'The photo quality is too low to verify the information.' : undefined,
+        user: {
+          name: userName,
+          email: `${userName.toLowerCase().replace(' ', '.')}@example.com`,
+          phone: '+1 234 567 8900',
+          photo: null,
+          registrationDate: '2024-01-15',
+          country: 'United States'
+        },
+        documents: [
+          {
+            type: 'National ID',
+            side: 'Front',
+            url: 'https://via.placeholder.com/600x400/3b82f6/ffffff?text=National+ID+Front'
+          },
+          {
+            type: 'National ID',
+            side: 'Back',
+            url: 'https://via.placeholder.com/600x400/6366f1/ffffff?text=National+ID+Back'
+          }
+        ],
+        riskScore: 25,
+        fraudIndicators: [],
+        checklistItems: {
+          nameMatch: true,
+          photoMatch: true,
+          notExpired: true,
+          authentic: true,
+          readable: true
+        },
+        previousAttempts: []
+      }
     }
   } catch (err) {
     console.error('Error fetching verification:', err)
