@@ -89,9 +89,46 @@
             v-for="item in managementMenuItems"
             :key="item.name"
             class="nav-item"
-            :class="{ active: isActive(item.route) }"
+            :class="{ active: isActive(item.route), 'has-children': item.children }"
           >
-            <router-link :to="item.route" class="nav-link" @click="closeMobileSidebar">
+            <!-- Parent item with children -->
+            <template v-if="item.children">
+              <div class="nav-link parent-link" @click="toggleExpand(item.name)">
+                <component :is="item.icon" class="nav-icon" />
+                <transition name="fade">
+                  <span v-if="!isCollapsed" class="nav-text">{{ item.name }}</span>
+                </transition>
+                <transition name="fade">
+                  <span v-if="item.badge && !isCollapsed" class="badge">{{ item.badge }}</span>
+                </transition>
+                <transition name="fade">
+                  <ChevronDownIcon
+                    v-if="!isCollapsed"
+                    class="expand-icon"
+                    :class="{ 'expanded': isExpanded(item.name) }"
+                  />
+                </transition>
+              </div>
+              <!-- Submenu -->
+              <transition name="submenu">
+                <ul v-if="isExpanded(item.name) && !isCollapsed" class="submenu">
+                  <li
+                    v-for="child in item.children"
+                    :key="child.name"
+                    class="submenu-item"
+                    :class="{ active: route.path === child.route }"
+                  >
+                    <router-link :to="child.route" class="submenu-link" @click="closeMobileSidebar">
+                      <component :is="child.icon" class="submenu-icon" />
+                      <span class="submenu-text">{{ child.name }}</span>
+                      <span v-if="child.badge" class="badge">{{ child.badge }}</span>
+                    </router-link>
+                  </li>
+                </ul>
+              </transition>
+            </template>
+            <!-- Regular link without children -->
+            <router-link v-else :to="item.route" class="nav-link" @click="closeMobileSidebar">
               <component :is="item.icon" class="nav-icon" />
               <transition name="fade">
                 <span v-if="!isCollapsed" class="nav-text">{{ item.name }}</span>
@@ -141,7 +178,10 @@ import {
   UserGroupIcon,
   BanknotesIcon,
   TagIcon,
-  CpuChipIcon
+  CpuChipIcon,
+  StarIcon,
+  FlagIcon,
+  FolderIcon
 } from '@heroicons/vue/24/outline'
 
 interface MenuItem {
@@ -176,7 +216,6 @@ const mainMenuItems = ref<MenuItem[]>([
     children: [
       { name: 'Queue', route: '/verification/queue', icon: ClockIcon, badge: 5 },
       { name: 'History', route: '/verification/history', icon: DocumentTextIcon },
-      { name: 'Bulk Actions', route: '/verification/bulk', icon: QueueListIcon },
       { name: 'Fraud Alerts', route: '/verification/fraud', icon: ExclamationTriangleIcon, badge: 8 }
     ]
   },
@@ -198,7 +237,15 @@ const mainMenuItems = ref<MenuItem[]>([
 // Management menu items
 const managementMenuItems = ref<MenuItem[]>([
   { name: 'Users', route: '/users', icon: UsersIcon },
-  { name: 'Items', route: '/items', icon: CubeIcon },
+  {
+    name: 'Items',
+    route: '/items',
+    icon: CubeIcon,
+    children: [
+      { name: 'All Items', route: '/items', icon: QueueListIcon },
+      { name: 'Reported', route: '/items/reported', icon: FlagIcon, badge: 6 }
+    ]
+  },
   { name: 'Transactions', route: '/transactions', icon: ArrowsRightLeftIcon },
   { name: 'Audit Logs', route: '/audit', icon: ClipboardDocumentListIcon },
   { name: 'Settings', route: '/settings', icon: Cog6ToothIcon }

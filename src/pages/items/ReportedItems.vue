@@ -1,238 +1,325 @@
-// PAGE PURPOSE: User-reported items management for handling flags and policy violations
-//
-// MAIN FUNCTIONALITY:
-// - Display all user-reported items requiring investigation
-// - Review report details and evidence
-// - Investigate flagged content for policy violations
-// - Take action (remove item, warn seller, dismiss report, etc.)
-// - Track report resolution and trends
-// - Identify malicious reporters (false reports)
-// - Manage reporter credibility scores
-//
-// UI COMPONENTS:
-// - Reported items statistics (total reports, pending, resolved, dismissed)
-// - Priority tabs (critical, high, medium, low priority)
-// - Reports table (item, reporter, reason, report date, status, assigned admin)
-// - Filter panel (report reason, date range, status, item category)
-// - Report detail view (item info, report details, reporter history, investigation notes)
-// - Action buttons (Remove Item, Warn Seller, Dismiss Report, Request More Info, Escalate)
-// - Resolution form (action taken, reason, notes)
-// - Reporter management (view reporter profile, credibility score)
-// - Bulk report actions
-//
-// DATA REQUIREMENTS:
-// - API: GET /api/admin/reported-items
-// - Query params: status, reason, priority, dateFrom, dateTo, category
-// - Response: {
-//     reports: [{
-//       id, itemId, itemTitle, itemPhoto, sellerId, sellerName,
-//       reporterId, reporterName, reportReason, reportDetails,
-//       reportedAt, evidence: [ screenshot URLs ],
-//       priority: 'critical' | 'high' | 'medium' | 'low',
-//       status: 'pending' | 'investigating' | 'resolved' | 'dismissed',
-//       assignedTo: adminId,
-//       resolution: { action, reason, resolvedAt, resolvedBy },
-//       reporterCredibility: number (0-100)
-//     }],
-//     stats: { totalReports, pending, resolved, dismissed, avgResolutionTime },
-//     reportReasons: [{ reason, count }]
-//   }
-//
-// WORKFLOW:
-// 1. Load reported items queue
-// 2. Display reports sorted by priority
-// 3. Admin selects report to investigate
-// 4. Review item details and report reason
-// 5. Check reporter credibility and history
-// 6. Investigate evidence (screenshots, messages)
-// 7. Decide action:
-//    a. Remove item (if policy violation confirmed)
-//    b. Warn seller (minor violation)
-//    c. Dismiss report (false/malicious report)
-//    d. Request more information
-//    e. Escalate to legal/compliance
-// 8. Document resolution with notes
-// 9. Notify reporter and seller of outcome
-// 10. Update report status to resolved
-//
-// REPORT REASONS (User-Selected):
-// - Prohibited/Illegal Item: Item violates laws or marketplace policies
-// - Counterfeit/Fake: Item is counterfeit or misrepresented
-// - Inappropriate Content: Offensive images, text, or content
-// - Misleading Description: Item description doesn't match photos/reality
-// - Scam/Fraud: Suspected fraudulent listing
-// - Spam: Repetitive or spam listing
-// - Copyright Violation: Unauthorized use of copyrighted material
-// - Price Gouging: Unreasonably high pricing for essential items
-// - Duplicate Listing: Same item listed multiple times
-// - Other: Custom reason provided by reporter
-//
-// PRIORITY LEVELS:
-// - CRITICAL: Illegal items, safety hazards, urgent legal issues
-//   * Immediate attention required
-//   * Auto-assign to senior admin
-//   * Escalate to legal if needed
-//
-// - HIGH: Prohibited items, fraud, counterfeits
-//   * Review within 24 hours
-//   * Potential account suspension
-//
-// - MEDIUM: Misleading descriptions, inappropriate content
-//   * Review within 3 days
-//   * Warning to seller likely
-//
-// - LOW: Spam, duplicates, minor issues
-//   * Review within 7 days
-//   * Educate seller
-//
-// INVESTIGATION PROCESS:
-// 1. Review reported item (photos, description, pricing, seller info)
-// 2. Check seller history (previous reports, violations, account age)
-// 3. Review reporter credibility (past reports, accuracy rate)
-// 4. Examine evidence provided (screenshots, links, messages)
-// 5. Compare with marketplace policies
-// 6. Check for similar violations by same seller
-// 7. Determine if report is valid
-// 8. Decide appropriate action
-//
-// ACTIONS AVAILABLE:
-//
-// - REMOVE ITEM:
-//   * Confirm policy violation
-//   * Select removal reason
-//   * Item immediately delisted
-//   * Seller notified with explanation
-//   * Reporter notified of action taken
-//   * Log in seller's violation history
-//   * May trigger account suspension if repeated violations
-//
-// - WARN SELLER:
-//   * Minor policy violation
-//   * Send official warning to seller
-//   * Require seller to fix issue
-//   * Item remains listed (or suspended until fixed)
-//   * Warning counts toward suspension threshold
-//
-// - DISMISS REPORT:
-//   * No policy violation found
-//   * False or malicious report
-//   * Reduce reporter credibility score (if malicious)
-//   * Notify reporter that no action was taken
-//   * Item remains active
-//
-// - REQUEST MORE INFORMATION:
-//   * Unclear if violation occurred
-//   * Contact reporter for additional evidence
-//   * Contact seller for clarification
-//   * Put report on hold pending response
-//
-// - ESCALATE:
-//   * Legal/compliance review needed
-//   * Potential criminal activity
-//   * Assign to legal team
-//   * Suspend item pending investigation
-//
-// - EDIT ITEM:
-//   * Admin corrects minor issues
-//   * Fix misleading description
-//   * Update photos
-//   * Mark report as resolved
-//
-// EVIDENCE REVIEW:
-// - Reporter-uploaded screenshots
-// - Item photos and description
-// - Conversation history (if applicable)
-// - Price comparison data
-// - External links or references
-// - Previous reports on same item/seller
-//
-// REPORTER CREDIBILITY:
-// - Track reporter's accuracy rate
-// - High credibility (80-100): Accurate reports, trustworthy
-// - Medium credibility (50-79): Mixed accuracy
-// - Low credibility (0-49): Frequent false reports, may be malicious
-// - Impact on priority: High-credibility reporters get faster review
-// - Malicious reporters may be warned or banned from reporting
-//
-// SELLER VIOLATION TRACKING:
-// - Count policy violations per seller
-// - Track violation severity and frequency
-// - 3 strikes policy:
-//   * 1st violation: Warning
-//   * 2nd violation: Temporary suspension
-//   * 3rd violation: Permanent ban
-// - Violation types tracked separately
-// - Appeal process available
-//
-// RESOLUTION NOTES:
-// - Admin documents decision rationale
-// - Explain why action was taken
-// - Include policy references
-// - Useful for appeals and consistency
-// - Searchable for future similar cases
-//
-// NOTIFICATIONS:
-//
-// - TO REPORTER:
-//   * "Thank you for your report"
-//   * "We've investigated and taken action" (don't specify action for privacy)
-//   * "No policy violation found, item remains active"
-//
-// - TO SELLER:
-//   * "Your item was reported and removed for [reason]"
-//   * "You've received a warning for [violation]"
-//   * "Your item has been reviewed and approved"
-//   * Include policy guidelines and how to avoid future violations
-//
-// BULK REPORT ACTIONS:
-// - Select multiple reports
-// - Bulk dismiss (for spam reports)
-// - Bulk assign to admin
-// - Bulk escalate
-// - Useful for handling report brigading or spam
-//
-// REPORT TRENDS ANALYSIS:
-// - Most common report reasons
-// - Categories with most reports
-// - Sellers with repeat violations
-// - Reporter patterns (identify serial reporters)
-// - Seasonal trends (e.g., more scam reports during holidays)
-// - Use insights to improve policies and prevention
-//
-// FALSE REPORTING PREVENTION:
-// - Rate limit reports per user (max X reports per day)
-// - Flag users with high false report rates
-// - Warn users about malicious reporting consequences
-// - Ban abusive reporters
-// - Require evidence for certain report types
-//
-// SECURITY CONSIDERATIONS:
-// - Only admins with "content_moderation" permission
-// - Audit log all report resolutions
-// - Protect reporter anonymity (don't expose to seller)
-// - Handle sensitive reports (illegal content) with care
-// - Legal compliance for certain violations
-//
-// PERFORMANCE OPTIMIZATION:
-// - Paginate reports (50 per page)
-// - Lazy load evidence images
-// - Cache seller/reporter history
-// - Index by priority for fast filtering
-//
-// ERROR HANDLING:
-// - Handle missing evidence gracefully
-// - Retry failed actions
-// - Validate resolution data
-// - Clear error messages
-//
-// RESPONSIVE DESIGN:
-// - Reports table → cards on mobile
-// - Touch-friendly action buttons
-// - Collapsible detail panels
-//
-// INTEGRATION POINTS:
-// - Navigate to ItemDetail.vue, UserDetail.vue
-// - Notification Service: Notify reporters and sellers
-// - Policy Engine: Check violations against policies
-// - Legal/Compliance: Escalate serious violations
-// - Audit Service: Log all report resolutions
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  EyeIcon,
+  FunnelIcon
+} from '@heroicons/vue/24/outline'
+import ItemStatsCard from '@/components/items/ItemStatsCard.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
+
+interface Report {
+  id: number
+  itemId: number
+  itemTitle: string
+  itemImage?: string
+  reportType: string
+  priority: 'high' | 'medium' | 'low'
+  reason: string
+  reportedBy: string
+  reportDate: string
+  status: 'pending' | 'investigating' | 'resolved' | 'dismissed'
+}
+
+const router = useRouter()
+const loading = ref(false)
+const selectedFilter = ref('all')
+const selectedPriority = ref('all')
+
+// Mock reports data
+const reports = ref<Report[]>([
+  {
+    id: 1,
+    itemId: 3,
+    itemTitle: 'Designer Leather Jacket',
+    itemImage: undefined,
+    reportType: 'Prohibited Item',
+    priority: 'high',
+    reason: 'Suspected counterfeit designer item',
+    reportedBy: 'John Doe',
+    reportDate: '2024-11-20',
+    status: 'pending'
+  },
+  {
+    id: 2,
+    itemId: 2,
+    itemTitle: 'Modern Office Chair',
+    reportType: 'Misleading Description',
+    priority: 'medium',
+    reason: 'Item condition significantly worse than advertised',
+    reportedBy: 'Jane Smith',
+    reportDate: '2024-11-19',
+    status: 'investigating'
+  },
+  {
+    id: 3,
+    itemId: 1,
+    itemTitle: 'Premium Wireless Headphones',
+    reportType: 'Suspicious Activity',
+    priority: 'high',
+    reason: 'Item matches police report for stolen goods',
+    reportedBy: 'Security Team',
+    reportDate: '2024-11-19',
+    status: 'pending'
+  },
+  {
+    id: 4,
+    itemId: 9,
+    itemTitle: 'Electric Guitar with Amp',
+    reportType: 'Policy Violation',
+    priority: 'high',
+    reason: 'Photos contain inappropriate content',
+    reportedBy: 'Multiple Users',
+    reportDate: '2024-11-18',
+    status: 'investigating'
+  },
+  {
+    id: 5,
+    itemId: 12,
+    itemTitle: 'Kids Toy Collection',
+    reportType: 'Price Gouging',
+    priority: 'low',
+    reason: 'Item priced significantly above market value',
+    reportedBy: 'Anonymous',
+    reportDate: '2024-11-18',
+    status: 'dismissed'
+  },
+  {
+    id: 6,
+    itemId: 7,
+    itemTitle: 'Camping Tent - 4 Person',
+    reportType: 'Spam',
+    priority: 'low',
+    reason: 'Same item listed multiple times',
+    reportedBy: 'Community Moderator',
+    reportDate: '2024-11-17',
+    status: 'resolved'
+  }
+])
+
+const filteredReports = computed(() => {
+  let filtered = reports.value
+
+  if (selectedFilter.value !== 'all') {
+    filtered = filtered.filter(r => r.status === selectedFilter.value)
+  }
+
+  if (selectedPriority.value !== 'all') {
+    filtered = filtered.filter(r => r.priority === selectedPriority.value)
+  }
+
+  return filtered
+})
+
+const stats = computed(() => ({
+  pending: reports.value.filter(r => r.status === 'pending').length,
+  investigating: reports.value.filter(r => r.status === 'investigating').length,
+  resolved: reports.value.filter(r => r.status === 'resolved').length,
+  highPriority: reports.value.filter(r => r.priority === 'high' && r.status !== 'resolved' && r.status !== 'dismissed').length
+}))
+
+// Removed unused getPriorityColor function
+
+// Removed unused getStatusColor function
+
+const handleViewItem = (itemId: number) => {
+  router.push(`/items/${itemId}`)
+}
+
+const handleInvestigate = (reportId: number) => {
+  const report = reports.value.find(r => r.id === reportId)
+  if (report) {
+    report.status = 'investigating'
+  }
+}
+
+const handleResolve = (reportId: number) => {
+  const report = reports.value.find(r => r.id === reportId)
+  if (report) {
+    report.status = 'resolved'
+  }
+}
+
+const handleDismiss = (reportId: number) => {
+  const report = reports.value.find(r => r.id === reportId)
+  if (report) {
+    report.status = 'dismissed'
+  }
+}
+</script>
+
+<template>
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-900 p-6">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+        Reported Items
+      </h1>
+      <p class="text-slate-600 dark:text-slate-400">
+        Review and moderate user-reported content
+      </p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <ItemStatsCard
+        label="Pending Review"
+        :value="stats.pending.toString()"
+        :icon="ExclamationTriangleIcon"
+        color="yellow"
+      />
+      <ItemStatsCard
+        label="Investigating"
+        :value="stats.investigating.toString()"
+        :icon="EyeIcon"
+        color="blue"
+      />
+      <ItemStatsCard
+        label="Resolved"
+        :value="stats.resolved.toString()"
+        :icon="CheckCircleIcon"
+        color="green"
+      />
+      <ItemStatsCard
+        label="High Priority"
+        :value="stats.highPriority.toString()"
+        :icon="ExclamationTriangleIcon"
+        color="red"
+      />
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-6">
+      <div class="flex items-center gap-2 mb-4">
+        <FunnelIcon class="w-5 h-5 text-slate-600 dark:text-slate-400" />
+        <h3 class="font-semibold text-slate-900 dark:text-white">Filters</h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Status
+          </label>
+          <select
+            v-model="selectedFilter"
+            class="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Reports</option>
+            <option value="pending">Pending</option>
+            <option value="investigating">Investigating</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Priority
+          </label>
+          <select
+            v-model="selectedPriority"
+            class="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <SkeletonLoader v-if="loading" variant="list" :count="6" />
+
+    <!-- Reports List -->
+    <div v-else-if="filteredReports.length > 0" class="space-y-4">
+      <div
+        v-for="report in filteredReports"
+        :key="report.id"
+        class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow duration-200"
+      >
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <!-- Report Info -->
+          <div class="flex-1">
+            <div class="flex items-start gap-4 mb-3">
+              <!-- Item Image Placeholder -->
+              <div class="w-16 h-16 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-lg flex-shrink-0"></div>
+
+              <div class="flex-1">
+                <div class="flex items-start gap-2 mb-2">
+                  <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                    {{ report.itemTitle }}
+                  </h3>
+                  <BaseBadge
+                    :variant="report.priority === 'high' ? 'danger' : report.priority === 'medium' ? 'warning' : 'info'"
+                    size="sm"
+                  >
+                    {{ report.priority.toUpperCase() }}
+                  </BaseBadge>
+                  <BaseBadge
+                    :variant="report.status === 'pending' ? 'warning' : report.status === 'investigating' ? 'info' : report.status === 'resolved' ? 'success' : 'default'"
+                    size="sm"
+                  >
+                    {{ report.status.charAt(0).toUpperCase() + report.status.slice(1) }}
+                  </BaseBadge>
+                </div>
+                <div class="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                  <p><strong>Type:</strong> {{ report.reportType }}</p>
+                  <p><strong>Reason:</strong> {{ report.reason }}</p>
+                  <p><strong>Reported by:</strong> {{ report.reportedBy }} on {{ report.reportDate }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-wrap gap-2">
+            <BaseButton variant="primary" size="sm" @click="handleViewItem(report.itemId)">
+              <EyeIcon class="w-4 h-4" />
+              View Item
+            </BaseButton>
+            <BaseButton
+              v-if="report.status === 'pending'"
+              variant="warning"
+              size="sm"
+              @click="handleInvestigate(report.id)"
+            >
+              Investigate
+            </BaseButton>
+            <BaseButton
+              v-if="report.status !== 'resolved'"
+              variant="success"
+              size="sm"
+              @click="handleResolve(report.id)"
+            >
+              <CheckCircleIcon class="w-4 h-4" />
+              Resolve
+            </BaseButton>
+            <BaseButton
+              v-if="report.status !== 'dismissed'"
+              variant="secondary"
+              size="sm"
+              @click="handleDismiss(report.id)"
+            >
+              <XCircleIcon class="w-4 h-4" />
+              Dismiss
+            </BaseButton>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <EmptyState
+      v-else
+      :icon="CheckCircleIcon"
+      title="No reports found"
+      description="All reported items have been reviewed."
+    />
+  </div>
+</template>

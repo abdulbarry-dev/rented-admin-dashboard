@@ -7,7 +7,6 @@
 // - /users - User list with search and filters
 // - /users/:id - Individual user detail page
 // - /users/:id/transactions - User's transaction history
-// - /users/:id/communicate - Direct messaging with user
 // - /users/bulk-actions - Bulk user operations
 //
 // META PROPERTIES:
@@ -96,50 +95,6 @@ const userRoutes: RouteRecordRaw[] = [
     // - Calculate financial metrics (total spent, total earned)
     // - Filter by transaction type and status
     // - Export transaction history
-  },
-  {
-    path: '/users/:id/communicate',
-    name: 'user-communication',
-    component: () => import('@/pages/users/UserCommunication.vue'),
-    props: true,
-    meta: {
-      requiresAuth: true,
-      roles: ['super_admin', 'operations_manager', 'support_agent'],
-      permissions: ['users.communicate'],
-      layout: 'default',
-      title: 'Message User',
-      breadcrumb: 'Users > Communication',
-      showInMenu: false
-    }
-    // IMPLEMENTATION NOTES:
-    // - Display conversation history with user
-    // - Send direct messages to user
-    // - Use message templates for common scenarios
-    // - Send warnings or support responses
-    // - Track message delivery and read status
-  },
-  {
-    path: '/users/bulk-actions',
-    name: 'users-bulk',
-    component: () => import('@/pages/users/UserBulkActions.vue'),
-    meta: {
-      requiresAuth: true,
-      roles: ['super_admin'], // Only Super Admin for bulk operations
-      permissions: ['users.bulk', 'users.manage'],
-      layout: 'default',
-      title: 'Bulk User Actions',
-      breadcrumb: 'Users > Bulk Actions',
-      icon: 'batch',
-      showInMenu: true,
-      menuGroup: 'users',
-      order: 31
-    }
-    // IMPLEMENTATION NOTES:
-    // - Perform bulk operations on multiple users
-    // - Support suspend, activate, export, notify
-    // - Require confirmation for destructive actions
-    // - Track bulk operation progress
-    // - Show results summary after completion
   }
 ]
 

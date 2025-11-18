@@ -109,29 +109,6 @@ const verificationRoutes: RouteRecordRaw[] = [
     // - Track admin performance metrics
   },
   {
-    path: '/verification/bulk',
-    name: 'verification-bulk',
-    component: () => import('@/pages/verification/BulkVerification.vue'),
-    meta: {
-      requiresAuth: true,
-      roles: ['super_admin', 'operations_manager'],
-      permissions: ['verification.bulk', 'verification.approve', 'verification.reject'],
-      layout: 'default',
-      title: 'Bulk Verification',
-      breadcrumb: 'Verification > Bulk Processing',
-      icon: 'batch',
-      showInMenu: true,
-      menuGroup: 'verification',
-      order: 22
-    }
-    // IMPLEMENTATION NOTES:
-    // - Display low-risk verifications eligible for bulk approval
-    // - Support batch selection and approval
-    // - Prevent bulk approval of high-risk submissions
-    // - Track bulk operation progress
-    // - Require confirmation before processing
-  },
-  {
     path: '/verification/fraud',
     name: 'verification-fraud',
     component: () => import('@/pages/verification/FraudAlerts.vue'),
