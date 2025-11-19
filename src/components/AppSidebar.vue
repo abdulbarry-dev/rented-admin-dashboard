@@ -179,9 +179,12 @@ import {
   BanknotesIcon,
   TagIcon,
   CpuChipIcon,
-  StarIcon,
   FlagIcon,
-  FolderIcon
+  ShoppingBagIcon,
+  CalendarDaysIcon,
+  ExclamationCircleIcon,
+  ArrowPathIcon,
+  TruckIcon
 } from '@heroicons/vue/24/outline'
 
 interface MenuItem {
@@ -246,7 +249,19 @@ const managementMenuItems = ref<MenuItem[]>([
       { name: 'Reported', route: '/items/reported', icon: FlagIcon, badge: 6 }
     ]
   },
-  { name: 'Transactions', route: '/transactions', icon: ArrowsRightLeftIcon },
+  {
+    name: 'Transactions',
+    route: '/transactions',
+    icon: ArrowsRightLeftIcon,
+    children: [
+      { name: 'All Transactions', route: '/transactions', icon: ArrowsRightLeftIcon },
+      { name: 'Purchases', route: '/transactions/purchases', icon: ShoppingBagIcon },
+      { name: 'Rentals', route: '/transactions/rentals', icon: CalendarDaysIcon },
+      { name: 'Disputes', route: '/transactions/disputes', icon: ExclamationCircleIcon, badge: 3 },
+      { name: 'Refunds', route: '/transactions/refunds', icon: ArrowPathIcon },
+      { name: 'Shipping', route: '/transactions/shipping', icon: TruckIcon }
+    ]
+  },
   { name: 'Audit Logs', route: '/audit', icon: ClipboardDocumentListIcon },
   { name: 'Settings', route: '/settings', icon: Cog6ToothIcon }
 ])
@@ -294,6 +309,14 @@ onMounted(() => {
   // Auto-expand analytics menu if on analytics page
   if (route.path.startsWith('/analytics')) {
     expandedItems.value.push('Analytics')
+  }
+  // Auto-expand items menu if on items page
+  if (route.path.startsWith('/items')) {
+    expandedItems.value.push('Items')
+  }
+  // Auto-expand transactions menu if on transactions page
+  if (route.path.startsWith('/transactions')) {
+    expandedItems.value.push('Transactions')
   }
 })
 
