@@ -354,7 +354,8 @@ const getStatusColor = (status: string) => {
           Real-time health monitoring for all system services
         </p>
       </div>
-      <div class="overflow-x-auto">
+      <!-- Desktop Table -->
+      <div class="hidden lg:block overflow-x-auto">
         <table class="w-full">
           <thead class="bg-slate-50 dark:bg-slate-900/50">
             <tr>
@@ -406,6 +407,48 @@ const getStatusColor = (status: string) => {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile/Tablet Cards -->
+      <div class="lg:hidden divide-y divide-slate-200 dark:divide-slate-700">
+        <div
+          v-for="metric in healthMetrics"
+          :key="metric.service"
+          class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <h4 class="text-base font-medium text-slate-900 dark:text-white">
+              {{ metric.service }}
+            </h4>
+            <span
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize"
+              :class="getStatusColor(metric.status)"
+            >
+              {{ metric.status }}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Uptime</div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ metric.uptime }}
+              </div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Response</div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ metric.response }}
+              </div>
+            </div>
+            <div class="col-span-2">
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Requests</div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ metric.requests }}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

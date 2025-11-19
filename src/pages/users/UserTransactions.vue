@@ -333,8 +333,8 @@ const viewTransactionDetails = (transactionId: string) => {
         </div>
       </div>
 
-      <!-- Transaction Table -->
-      <div class="overflow-x-auto">
+      <!-- Transaction Table (Desktop) -->
+      <div class="hidden lg:block overflow-x-auto">
         <table class="w-full">
           <thead class="bg-slate-50 dark:bg-slate-900/50">
             <tr>
@@ -427,6 +427,75 @@ const viewTransactionDetails = (transactionId: string) => {
             </tr>
           </tbody>
         </table>
+
+        <!-- Empty State -->
+        <div
+          v-if="paginatedTransactions.length === 0"
+          class="text-center py-12"
+        >
+          <p class="text-slate-600 dark:text-slate-400">No transactions found</p>
+        </div>
+      </div>
+
+      <!-- Transaction Cards (Mobile/Tablet) -->
+      <div class="lg:hidden divide-y divide-slate-200 dark:divide-slate-700">
+        <div
+          v-for="transaction in paginatedTransactions"
+          :key="transaction.id"
+          class="p-4 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors duration-150"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                {{ transaction.id }}
+              </div>
+              <div class="text-xs text-slate-600 dark:text-slate-400">
+                {{ transaction.date }}
+              </div>
+            </div>
+            <span
+              class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+              :class="{
+                'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300': transaction.status === 'completed',
+                'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300': transaction.status === 'pending',
+                'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300': transaction.status === 'refunded'
+              }"
+            >
+              <CheckCircleIcon v-if="transaction.status === 'completed'" class="w-3 h-3" />
+              <ClockIcon v-if="transaction.status === 'pending'" class="w-3 h-3" />
+              <XCircleIcon v-if="transaction.status === 'refunded'" class="w-3 h-3" />
+              {{ transaction.status }}
+            </span>
+          </div>
+
+          <div class="space-y-2 mb-3">
+            <div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ transaction.item }}
+              </div>
+              <div class="text-xs text-slate-600 dark:text-slate-400">
+                {{ transaction.seller }} • {{ transaction.category }}
+              </div>
+            </div>
+
+            <div
+              class="text-lg font-semibold"
+              :class="{
+                'text-green-600 dark:text-green-400': transaction.amount > 0,
+                'text-red-600 dark:text-red-400': transaction.amount < 0
+              }"
+            >
+              {{ transaction.amount > 0 ? '+' : '' }}${{ Math.abs(transaction.amount).toFixed(2) }}
+            </div>
+          </div>
+
+          <button
+            @click="viewTransactionDetails(transaction.id)"
+            class="w-full py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+          >
+            View Details
+          </button>
+        </div>
 
         <!-- Empty State -->
         <div

@@ -92,7 +92,8 @@
 
     <!-- History Table -->
     <div class="table-section">
-      <div class="table-container">
+      <!-- Desktop Table -->
+      <div class="table-container hidden lg:block">
         <table class="history-table">
           <thead>
             <tr>
@@ -157,6 +158,75 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile/Tablet Cards -->
+      <div class="lg:hidden space-y-4">
+        <div
+          v-for="record in paginatedHistory"
+          :key="record.id"
+          class="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div v-if="record.user.photo" class="user-photo">
+                <img :src="record.user.photo" alt="User" />
+              </div>
+              <div v-else class="user-photo avatar-fallback">
+                <span>{{ getInitials(record.user.name) }}</span>
+              </div>
+              <div>
+                <div class="user-name">{{ record.user.name }}</div>
+                <div class="user-email">{{ record.user.email }}</div>
+              </div>
+            </div>
+            <span class="status-badge" :class="record.status">
+              {{ record.status }}
+            </span>
+          </div>
+
+          <div class="space-y-2 text-sm mb-3">
+            <div class="flex justify-between">
+              <span class="text-slate-600 dark:text-slate-400">Document Type:</span>
+              <span class="document-type">{{ record.documentType }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600 dark:text-slate-400">Submitted:</span>
+              <div class="text-right">
+                <div>{{ formatDate(record.submittedAt) }}</div>
+                <div class="time-text">{{ formatTime(record.submittedAt) }}</div>
+              </div>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600 dark:text-slate-400">Processed:</span>
+              <div class="text-right">
+                <div>{{ formatDate(record.processedAt) }}</div>
+                <div class="time-text">{{ formatTime(record.processedAt) }}</div>
+              </div>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600 dark:text-slate-400">Verifier:</span>
+              <span class="verifier">{{ record.verifier }}</span>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              @click="viewDetails(record.id)"
+              class="flex-1 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <EyeIcon class="w-4 h-4" />
+              View
+            </button>
+            <button
+              @click="downloadRecord(record.id)"
+              class="flex-1 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+            >
+              <ArrowDownTrayIcon class="w-4 h-4" />
+              Download
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Pagination -->

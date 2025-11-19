@@ -130,7 +130,8 @@
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">There are no pending verifications matching your criteria.</p>
       </div>
 
-      <div v-else class="overflow-x-auto">
+      <!-- Desktop Table -->
+      <div v-else class="hidden lg:block overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
             <tr>
@@ -232,6 +233,98 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile/Tablet Cards -->
+      <div v-else class="lg:hidden space-y-4 p-4">
+        <div
+          v-for="submission in submissions"
+          :key="submission.id"
+          class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+          :class="{ 'ring-2 ring-blue-500 dark:ring-blue-400': selectedIds.includes(submission.id) }"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3 flex-1">
+              <input
+                type="checkbox"
+                :checked="selectedIds.includes(submission.id)"
+                @change="toggleSelection(submission.id)"
+                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:bg-gray-700 dark:border-gray-600"
+              />
+              <img v-if="submission.userPhoto" :src="submission.userPhoto" :alt="submission.userName" class="w-10 h-10 rounded-full" />
+              <AvatarFallback v-else :full-name="submission.userName" size="md" />
+              <div>
+                <div class="font-medium text-gray-900 dark:text-white">{{ submission.userName }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ submission.userEmail }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2 text-sm mb-3">
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600 dark:text-gray-400">ID:</span>
+              <span class="font-mono text-gray-900 dark:text-white">{{ submission.id }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600 dark:text-gray-400">Submitted:</span>
+              <span class="text-gray-900 dark:text-white">{{ formatDate(submission.submittedAt) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600 dark:text-gray-400">Document:</span>
+              <span class="text-gray-900 dark:text-white">{{ formatDocumentType(submission.documentType) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600 dark:text-gray-400">Wait Time:</span>
+              <span
+                class="font-medium"
+                :class="submission.waitTimeHours > 48 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'"
+              >
+                {{ submission.waitTimeHours }}h
+              </span>
+            </div>
+            <div class="flex justify-between items-start">
+              <span class="text-gray-600 dark:text-gray-400">Risk Score:</span>
+              <div class="flex items-center gap-2">
+                <div class="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    :class="getRiskBarClass(submission.riskScore)"
+                    :style="{ width: submission.riskScore + '%' }"
+                    class="h-full rounded-full"
+                  ></div>
+                </div>
+                <span class="text-sm font-medium" :class="getRiskTextClass(submission.riskScore)">{{ submission.riskScore }}</span>
+              </div>
+            </div>
+            <div v-if="submission.priority === 'urgent' || submission.priority === 'high'" class="pt-1">
+              <BaseBadge v-if="submission.priority === 'urgent'" variant="danger" size="sm">URGENT</BaseBadge>
+              <BaseBadge v-else-if="submission.priority === 'high'" variant="warning" size="sm">HIGH</BaseBadge>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              @click="viewDetails(submission.id)"
+              class="flex-1 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <EyeIcon class="w-4 h-4" />
+              View
+            </button>
+            <button
+              @click="quickApprove(submission)"
+              class="flex-1 py-2 text-sm font-medium text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <CheckIcon class="w-4 h-4" />
+              Approve
+            </button>
+            <button
+              @click="quickReject(submission)"
+              class="flex-1 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <XMarkIcon class="w-4 h-4" />
+              Reject
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

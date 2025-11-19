@@ -314,7 +314,8 @@ const downloadChart = (chartName: string) => {
           Comprehensive metrics for each category
         </p>
       </div>
-      <div class="overflow-x-auto">
+      <!-- Desktop Table -->
+      <div class="hidden lg:block overflow-x-auto">
         <table class="w-full">
           <thead class="bg-slate-50 dark:bg-slate-900/50">
             <tr>
@@ -372,6 +373,52 @@ const downloadChart = (chartName: string) => {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile/Tablet Cards -->
+      <div class="lg:hidden divide-y divide-slate-200 dark:divide-slate-700">
+        <div
+          v-for="category in categoryMetrics"
+          :key="category.name"
+          class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <h4 class="text-base font-medium text-slate-900 dark:text-white">
+              {{ category.name }}
+            </h4>
+            <span
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+              :class="{
+                'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300': category.growth > 20,
+                'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300': category.growth <= 20 && category.growth > 10,
+                'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300': category.growth <= 10
+              }"
+            >
+              +{{ category.growth }}%
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Sales Volume</div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ category.sales.toLocaleString() }}
+              </div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Revenue</div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ category.revenue }}
+              </div>
+            </div>
+            <div class="col-span-2">
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Listings</div>
+              <div class="text-sm font-medium text-slate-900 dark:text-white">
+                {{ category.listings.toLocaleString() }}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
